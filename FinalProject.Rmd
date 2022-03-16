@@ -1,0 +1,16 @@
+---
+title: "STATS 415 Final Project"
+author: "Sarah Kurata, Hannah Daane, Saman Verma"
+date: "3/16/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Reading in Data
+
+```{r, echo=FALSE}
+
+```
