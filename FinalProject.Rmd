@@ -7,10 +7,58 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(haven)
 ```
 
 ## Reading in Data
 
 ```{r, echo=FALSE}
+# we'll all need to uncomment when we read our own data in case we stored them in different folders?
 
+# Saman's data read-in
+#bmx <- read_xpt("C:/Users/Vanita/Desktop/STATS 415/Final Project/Data/BMX_F.XPT")
+#bpx <- read_xpt("C:/Users/Vanita/Desktop/STATS 415/Final Project/Data/BPX_F.XPT")
+#demo <- read_xpt("C:/Users/Vanita/Desktop/STATS 415/Final Project/Data/DEMO_F.XPT")
+#dr1 <- read_xpt("C:/Users/Vanita/Desktop/STATS 415/Final Project/Data/DR1IFF_F.XPT")
+#smq <- read_xpt("C:/Users/Vanita/Desktop/STATS 415/Final Project/Data/SMQ_F.XPT")
+#tchol <- read_xpt("C:/Users/Vanita/Desktop/STATS 415/Final Project/Data/TCHOL_F.XPT")
+
+# Sarah's data read-in
+#2009
+bmx09 <- read_xpt("./Data/09BMX_F.XPT")
+bpx09 <- read_xpt("./Data/09BPX_F.XPT")
+demo09 <- read_xpt("./Data/09DEMO_F.XPT")
+dr109 <- read_xpt("./Data/09DR1IFF_F.XPT")
+smq09 <- read_xpt("./Data/09SMQ_F.XPT")
+tchol09 <- read_xpt("./Data/09TCHOL_F.XPT")
+
+#2011
+
+#2013
+
+#2015
+
+#2017
 ```
+
+
+```{r, echo=FALSE}
+#2009
+data09 = merge(bmx09, bpx09, by = "SEQN")
+listy = list(demo09, dr109, smq09, tchol09)
+for(i in 1:4){
+  data09 = merge(data09, listy[[i]], by = "SEQN")
+}
+#View(data09)
+
+#2011
+
+#2013
+
+#2015
+
+#2017
+
+#all years
+```
+
