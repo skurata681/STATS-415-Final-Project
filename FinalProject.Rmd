@@ -123,5 +123,32 @@ write_csv(firstprediction, "Predictions/Kaggle/firstPrediction.csv")
 
 
 ```{r}
+#Caffeine
+library(Hmisc)
+library(corrplot)
+correlationmatrix = cor(train[,c(which( colnames(train)=="DR1TCAFF" ), which( colnames(train)=="DMDHREDU" ), which( colnames(train)=="INDHHIN2" ), which( colnames(train)=="INDFMIN2" ), which( colnames(train)=="INDFMPIR" ))])
+corrplot(correlationmatrix)
+palette = colorRampPalette(c("green", "white", "red")) (20)
+heatmap(x = correlationmatrix, col = palette, symm = TRUE)
+```
+
+
+```{r}
+library(data.table)
+library(tidyr)
+classification = copy(data)
+classification = classification %>% drop_na("SMQ905")
+classification = classification %>% drop_na("SMD641")
+classification = classification %>% drop_na("DR1TALCO")
+correlationmatrix = cor(classification[,c(which( colnames(classification)=="SMQ905" ), which( colnames(classification)=="SMD641" ), which( colnames(classification)=="DR1TALCO" ))])
+corrplot(correlationmatrix)
+palette = colorRampPalette(c("green", "white", "red")) (20)
+heatmap(x = correlationmatrix, col = palette, symm = TRUE)
+
+
+```
+
+
+```{r}
 
 ```
