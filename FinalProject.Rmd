@@ -101,11 +101,15 @@ data = merge(train, data, by = "SEQN", all.x = TRUE)
 data=data[, colSums(is.na(data))==0]
 data = data[, -which(names(data)%in%c("SMDUPCA", "SMD100BR", "DR1DRSTZ", "DRABF", "RIDSTATR"))]
 write_csv(data, "Data/Total/data.csv")
-cat(nrow(bmx09)+nrow(bmx11)+nrow(bmx13)+nrow(bmx15)+nrow(bmx17))
+```
+
+
+```{r}
+model1 = glm(data$y ~ data$BMDSTATS)
+
 ```
 
 
 ```{r}
 
 ```
-
