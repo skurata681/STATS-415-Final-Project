@@ -29,12 +29,7 @@ for(i in 1:4){
   data09 = merge(data09, listy[[i]], by = "SEQN", all.x = TRUE)
 }
 write_csv(data09, "Data/2009/data2009.csv")
-colnames(bmx09)[colSums(is.na(bmx09))==0]
-colnames(bpx09)[colSums(is.na(bpx09))==0]
-colnames(demo09)[colSums(is.na(demo09))==0]
-colnames(dr109)[colSums(is.na(dr109))==0]
-colnames(smq09)[colSums(is.na(smq09))==0]
-colnames(tchol09)[colSums(is.na(tchol09))==0]
+
 #2011
 bmx11 <- read_xpt("Data/2011/BMX_G.XPT")
 bpx11 <- read_xpt("Data/2011/BPX_G.XPT")
@@ -104,6 +99,7 @@ for(i in 1:3){
 train = read_csv("train.csv")
 data = merge(train, data, by = "SEQN", all.x = TRUE)
 data=data[, colSums(is.na(data))==0]
+data = data[, -which(names(data)%in%c("SMDUPCA", "SMD100BR", "DR1DRSTZ", "DRABF", "RIDSTATR"))]
 write_csv(data, "Data/Total/data.csv")
 cat(nrow(bmx09)+nrow(bmx11)+nrow(bmx13)+nrow(bmx15)+nrow(bmx17))
 ```
