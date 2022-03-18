@@ -20,6 +20,7 @@ bmx09 <- read_xpt("Data/2009/BMX_F.XPT")
 bpx09 <- read_xpt("Data/2009/BPX_F.XPT")
 demo09 <- read_xpt("Data/2009/DEMO_F.XPT")
 dr109 <- read_xpt("Data/2009/DR1TOT_F.XPT")
+View(dr109)
 smq09 <- read_xpt("Data/2009/SMQ_F.XPT")
 tchol09 <- read_xpt("Data/2009/TCHOL_F.XPT")
 
@@ -96,17 +97,28 @@ listy = list(data13,data15,data17)
 for(i in 1:3){
   data = bind_rows(data, listy[[i]])
 }
-train = read_csv("train.csv")
-data = merge(train, data, by = "SEQN", all.x = TRUE)
-data=data[, colSums(is.na(data))==0]
-data = data[, -which(names(data)%in%c("SMDUPCA", "SMD100BR", "DR1DRSTZ", "DRABF", "RIDSTATR"))]
-write_csv(data, "Data/Total/data.csv")
+train = read_csv("Data/Kaggle/train.csv")
+train = merge(train, data, by = "SEQN", all.x = TRUE)
+train=train[, colSums(is.na(train))==0]
+train = train[, -which(names(train)%in%c("SMDUPCA", "SMD100BR", "DR1DRSTZ", "DRABF", "RIDSTATR"))]
+write_csv(train, "Data/Total/train.csv")
+test = read_csv("Data/Kaggle/test.csv")
+test = merge(test, data, by = "SEQN", all.x = TRUE)
+test=test[, colSums(is.na(test))==0]
+test = test[, -which(names(test)%in%c("SMDUPCA", "SMD100BR", "DR1DRSTZ", "DRABF", "RIDSTATR"))]
+drops = c(setdiff(names(test), names(train)))
+test = test[,!(names(test) %in% drops)]
+write_csv(test, "Data/Total/test.csv")
 ```
 
 
 ```{r}
-model1 = glm(data$y ~ data$BMDSTATS)
-
+model1 = glm(y ~ BMDSTATS, data = train)
+x = predict(model1, newdata = test)
+firstprediction = data.frame(test$SEQN, x)
+firstprediction <-  firstprediction%>%rename(SEQN=test.SEQN)
+firstprediction<-  firstprediction%>%rename(y=x)
+write_csv(firstprediction, "Predictions/Kaggle/firstPrediction.csv")
 ```
 
 
