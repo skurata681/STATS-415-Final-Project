@@ -10,6 +10,15 @@ knitr::opts_chunk$set(echo = TRUE)
 library(haven)
 library(readr)
 library(dplyr)
+library(tidyverse)
+
+#libraries for subset methods
+library(SignifReg)
+library(leaps)
+#shrinkage methods
+library(glmnet)
+library(pls)
+library(lares)
 ```
 
 ## Reading in Data
@@ -113,12 +122,69 @@ write_csv(test, "Data/Total/test.csv")
 
 
 ```{r}
+#original attempt
+view(train)
 model1 = glm(y ~ BMDSTATS, data = train)
 x = predict(model1, newdata = test)
 firstprediction = data.frame(test$SEQN, x)
 firstprediction <-  firstprediction%>%rename(SEQN=test.SEQN)
 firstprediction<-  firstprediction%>%rename(y=x)
 write_csv(firstprediction, "Predictions/Kaggle/firstPrediction.csv")
+
+#KAGGLE ATTEMPTS. TRIED BACKWARD AND FORWARD SELECTION WITH REGSUBSETS
+    #LOO-CV
+    # n_predictors <- ncol(train) - 1
+    # regfit.full <- regsubsets(y ~ ., data = train, nvmax = n_predictors, method = "backward")
+    # reg.summary <- summary(regfit.full)
+    # reg.summary$rsq
+#BY RUNNING BACKWARDS AND FORWARD SELECTION WE GOT LOW RSQ VALUE OF APPROXIMATELY .32
+
+#KAGGLE ATTEMPTS FORWARD SELECTION, this method looks at p-values
+nullmodel <- lm(y ~ 1, data = non_correlated)
+fullmodel <- lm(y ~ ., data = non_correlated)
+select.p.fwd <- SignifReg(fit = fullmodel,
+scope = list(lower = formula(nullmodel), upper = formula(fullmodel)),
+alpha = 0.05, direction = "backward",
+adjust.method = "none", trace = FALSE)
+summary(select.p.fwd)
+
+#resulting model from p-value
+forward_selection_model_signifreg <-lm(formula = y ~ SMAQUEX2 + BMXARML + DMDBORN4 + BPXSY1 + BPACSZ + DR1TSUGR + DR1TFIBE + RIDAGEYR + DR1TKCAL + BMXWT + BMXBMI + BMXHT + BMXWAIST + RIDEXMON + BMXARMC + SIAPROXY + DR1TATOC + FIALANG + DR1TS100 + SEQN + LBXTC + SIAINTRP + WTINT2YR, data = train)
+summary(forward_selection_model_signifreg)
+
+summary(lm(y~., train))
+
+#check model diagnostics of forward selection model
+ggplot() + geom_point(mapping = aes(x = fitted(forward_selection_model_signifreg), residuals(forward_selection_model_signifreg))) + geom_hline(yintercept = 0) + xlab("Fitted values") + ylab("Residuals")
+
+#normal qq plot shows that the distribution is longtailed, cauchy. this is concerning for least squares
+qqnorm(forward_selection_model_signifreg$residuals, ylab = "Residuals")
+qqline(forward_selection_model_signifreg$residuals)
+
+myvars <- names(train) %in% c("LBXTC", "WTINT2YR","DR1TPFAT", "DR1TMFAT", "DR1TFOLA", "DR1TSFAT")
+non_correlated<-train[!myvars]
+
+#no nonlinear relationships :/ checked for nonlinear relationships multiple ways
+#ONE HIGHLY CORRELATED VARIABLES GIVING ME ERROR
+cor(train)[cor(train)>.9999 & cor(train)<1]
+#FOUND HIGHLY CORRELATED VALUES
+corr_cross(non_correlated, # name of dataset
+  max_pvalue = 0.05, # display only significant correlations (at 5% level)
+  top = 10 # display top 10 couples of variables (by correlation coefficient)
+)
+
+nullmodel <- lm(y ~ 1, data = non_correlated)
+fullmodel <- lm(y ~ ., data = non_correlated)
+select.p.fwd <- SignifReg(fit = fullmodel,
+scope = list(lower = formula(nullmodel), upper = formula(fullmodel)),
+alpha = 0.05, direction = "backward",
+adjust.method = "none", trace = FALSE)
+summary(select.p.fwd)
+
+
+
+#attempt ridge and lasso
+
 ```
 
 
@@ -144,8 +210,6 @@ correlationmatrix = cor(classification[,c(which( colnames(classification)=="SMQ9
 corrplot(correlationmatrix)
 palette = colorRampPalette(c("green", "white", "red")) (20)
 heatmap(x = correlationmatrix, col = palette, symm = TRUE)
-
-
 ```
 
 
