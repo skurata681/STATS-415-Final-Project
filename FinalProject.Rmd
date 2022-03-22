@@ -142,9 +142,9 @@ write_csv(firstprediction, "Predictions/Kaggle/firstPrediction.csv")
 #KAGGLE ATTEMPTS FORWARD SELECTION, this method looks at p-values
 nullmodel <- lm(y ~ 1, data = non_correlated)
 fullmodel <- lm(y ~ ., data = non_correlated)
-select.p.fwd <- SignifReg(fit = fullmodel,
+select.p.fwd <- SignifReg(fit = nullmodel,
 scope = list(lower = formula(nullmodel), upper = formula(fullmodel)),
-alpha = 0.05, direction = "backward",
+alpha = 0.05, direction = "forward",
 adjust.method = "none", trace = FALSE)
 summary(select.p.fwd)
 
