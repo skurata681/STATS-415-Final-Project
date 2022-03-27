@@ -253,8 +253,10 @@ data_e_cig<-mutate(data,E_Cig = case_when(
   SMQ905 <= 29 ~ "Sometimes",
   SMQ905 <= 39 ~ "Always",
 ))
+
 #count of each category
 table(data_e_cig$E_Cig)
+prop.table(table(data_e_cig$E_Cig))
 #make sure all data is omitted
 na.omit(data_e_cig$E_Cig)
 
@@ -271,6 +273,7 @@ sample(data_always, size = trunc(0.70 * length(data_always))))
 data_new_train = data_e_cig[train_id, ]
 data_new_test = data_e_cig[-train_id, ]
 
+
 #quick lda
 lda_e_cig<-lda(E_Cig~ SMQ670, data=data_new_train)
 
@@ -284,3 +287,35 @@ lda_e_cig<-lda(E_Cig~ SMQ670, data=data_new_train)
 # test_err
 ```
 
+
+```{r CLASSIFICATION}
+two_way = table(data_e_cig$E_Cig, data_e_cig$RIAGENDR)
+prop.table(two_way)
+prop.table(two_way,1)
+prop.table(two_way,2)
+
+#according to chi-squared test gender is significant, gender variable
+e_cig <-table(data_e_cig$E_Cig, data_e_cig$RIAGENDR)
+chisq.test(e_cig, correct=FALSE)
+
+#highly related but such small value may be incorrect, tried to quit smoking variable
+e_cig <-table(data_e_cig$E_Cig, data_e_cig$SMQ670)
+chisq.test(e_cig, correct=FALSE)
+
+#also highly related; do you now smoke cigarettes variable, issue with size
+e_cig <-table(data_e_cig$E_Cig, data_e_cig$SMQ935)
+chisq.test(e_cig, correct=FALSE)
+
+#decently related ish, race/hispanic origin, same issue with size
+e_cig <-table(data_e_cig$E_Cig, data_e_cig$RIDRETH1)
+chisq.test(e_cig, correct=FALSE)
+
+#decently related, same issue with size, # of children 5 years or younger in HH
+e_cig <-table(data_e_cig$E_Cig, data_e_cig$DMDHHSZA)
+chisq.test(e_cig, correct=FALSE)
+
+#decently related, same issue with size, annual household income
+e_cig <-table(data_e_cig$E_Cig, data_e_cig$INDHHIN2)
+chisq.test(e_cig, correct=FALSE)
+
+```
