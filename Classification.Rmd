@@ -1,0 +1,119 @@
+---
+title: "STATS 415 Final Project - Classification"
+author: "Sarah Kurata"
+date: "3/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haven)
+library(readr)
+library(dplyr)
+library(tidyverse)
+
+#libraries for subset methods
+library(SignifReg)
+library(leaps)
+#shrinkage methods
+library(glmnet)
+library(pls)
+library(lares)
+library(class)
+library(GLDEX)
+library(stats)
+```
+
+## Clean data and split into training and test subsets
+
+```{r}
+df = read.csv('./Data/full_data.csv')
+```
+
+
+## Testing "on special diet?" as response (DRQSDIET)
+
+### Data cleaning
+
+```{r}
+table(df$DRQSDIET) # 224 missing responses
+diet_data = df[-which(df$DRQSDIET == 9),] #drop missing responses
+diet_data = diet_data[-which(is.na(diet_data$DRQSDIET)),] # drop na
+nrow(diet_data)
+diet_data$DRQSDIET = ifelse(diet_data$DRQSDIET == 2, 0, 1) # YES = 1, NO = 0
+diet_data$RIAGENDR = ifelse(diet_data$RIAGENDR == 2, 0, 1) # female = 0, male = 1
+```
+
+## SIGNIFICANT PREDICTORS 
+
+- BMXBMI = BMI
+- RIDAGEYR = AGE
+- DMDMARTL = marital status
+- RIDEXPRG = pregnancy status
+- DMDHHSZA = # children 5 yrs / younger
+- DMDHHSZB = # children 6-17
+- RIAGENDR = GENDER
+- LBXTC = total cholesterol
+- BPXSY1 = blood pressure
+- SMQ900 = ecig use
+- DR1TKCAL = energy
+- DR1TPROT = protein
+- DR1TCARB = carbohydrate
+- DR1TSUGR = total sugars
+- DR1TFIBE = dietary fiber
+- DR1TTFAT = total fat
+- DR1TVC = vitamin C
+- DR1TVD = vitamin D
+- DR1TCAFF = caffeine
+- DMDBORN4 = COUNTRY OF BIRTH
+
+```{r}
+#log_reg <- glm(DRQSDIET ~ BMXBMI + RIDAGEYR + DMDMARTL + RIDEXPRG + DMDHHSZA + DMDHHSZB + RIAGENDR + LBXTC + BPXSY1 + SMQ900 + DR1TKCAL + DR1TPROT + DR1TCARB + DR1TSUGR + DR1TFIBE + DR1TTFAT + DR1TVB12 + DR1TVC + DR1TVD + DR1TCAFF, diet_data, family = "binomial")
+```
+
+
+## Testing weight loss diet as response (DRQSDT1)
+
+### Cleaning
+
+```{r}
+# we made a subset of all participants who ARE on a diet
+# those who stated they are on weight loss diet have value 1
+# na values are just those on other diets, have value 0
+diet_data$DRQSDT1[is.na(diet_data$DRQSDT1)] = 0
+table(diet_data$DRQSDT1)
+```
+
+## SIGNIFICANT PREDICTORS 
+
+- BMXBMI = BMI
+- RIDAGEYR = AGE
+- RIDEXPRG = pregnancy status
+- DMDHHSZA = # children 5 yrs / younger
+- DMDHHSZB = # children 6-17
+- RIAGENDR = GENDER
+- LBXTC = total cholesterol
+- BPXSY1 = blood pressure
+- SMQ900 = ecig use
+- DR1TKCAL = energy
+- DR1TPROT = protein
+- DR1TCARB = carbohydrate
+- DR1TSUGR = total sugars
+- DR1TFIBE = dietary fiber
+- DR1TTFAT = total fat
+- DR1TVC = vitamin C
+- DR1TVD = vitamin D
+- DR1TCAFF = caffeine
+- DMDBORN4 = COUNTRY OF BIRTH
+
+Compared to DRQSDIET, these predictors are no longer significant:
+- DMDMARTL = marital status
+- SMQ900 = Ecig use
+- DR1TTFAT = total fat
+
+
+```{r}
+log_reg <- glm(DRQSDT1 ~ DMDBORN4, diet_data, family = "binomial")
+summary(log_reg)
+```
+
