@@ -19,6 +19,20 @@ library(leaps)
 library(glmnet)
 library(pls)
 library(lares)
+#LDA model
+library(MASS)
+
+#RandomForest
+library(randomForest)
+#gradient boosting
+library(gbm)
+
+#support vector classifier
+library(e1071)
+
+#neural network
+library(keras)
+library(neuralnet)
 ```
 
 ## Reading in Data
@@ -152,8 +166,6 @@ summary(select.p.fwd)
 forward_selection_model_signifreg <-lm(formula = y ~ SMAQUEX2 + BMXARML + DMDBORN4 + BPXSY1 + BPACSZ + DR1TSUGR + DR1TFIBE + RIDAGEYR + DR1TKCAL + BMXWT + BMXBMI + BMXHT + BMXWAIST + RIDEXMON + BMXARMC + SIAPROXY + DR1TATOC + FIALANG + DR1TS100 + SEQN + LBXTC + SIAINTRP + WTINT2YR, data = train)
 summary(forward_selection_model_signifreg)
 
-summary(lm(y~., train))
-
 #check model diagnostics of forward selection model
 ggplot() + geom_point(mapping = aes(x = fitted(forward_selection_model_signifreg), residuals(forward_selection_model_signifreg))) + geom_hline(yintercept = 0) + xlab("Fitted values") + ylab("Residuals")
 
@@ -161,18 +173,16 @@ ggplot() + geom_point(mapping = aes(x = fitted(forward_selection_model_signifreg
 qqnorm(forward_selection_model_signifreg$residuals, ylab = "Residuals")
 qqline(forward_selection_model_signifreg$residuals)
 
+#tried to take out values very correlated so backward selection would run
 myvars <- names(train) %in% c("LBXTC", "WTINT2YR","DR1TPFAT", "DR1TMFAT", "DR1TFOLA", "DR1TSFAT")
 non_correlated<-train[!myvars]
-
-#no nonlinear relationships :/ checked for nonlinear relationships multiple ways
-#ONE HIGHLY CORRELATED VARIABLES GIVING ME ERROR
 cor(train)[cor(train)>.9999 & cor(train)<1]
-#FOUND HIGHLY CORRELATED VALUES
-corr_cross(non_correlated, # name of dataset
-  max_pvalue = 0.05, # display only significant correlations (at 5% level)
-  top = 10 # display top 10 couples of variables (by correlation coefficient)
+#FOUND HIGHLY CORRELATED VALUES, seeing which values are highly correlated 
+corr_cross(non_correlated, 
+  max_pvalue = 0.05, 
+  top = 10
 )
-
+#attempting backward selection
 nullmodel <- lm(y ~ 1, data = non_correlated)
 fullmodel <- lm(y ~ ., data = non_correlated)
 select.p.fwd <- SignifReg(fit = fullmodel,
@@ -181,10 +191,32 @@ alpha = 0.05, direction = "backward",
 adjust.method = "none", trace = FALSE)
 summary(select.p.fwd)
 
+#FOUND NO NON LINEAR RELATIONSHIPS BETWEEN ALL PREDICTORS AND RESPONSE
 
+#For the long tailed distribution can try a transformation of the response variable (log, sqrt). Also use robust methods such as huber's method
+#in order to generate R^2 for some models generate predictions and look at squared correlation
+#Neural Networks will most likely work well
 
-#attempt ridge and lasso
+#attempt huber method because long-tailed distribution
+huber_method<-rlm(formula = y ~ SMAQUEX2 + BMXARML + DMDBORN4 + BPXSY1 + BPACSZ + DR1TSUGR + DR1TFIBE + RIDAGEYR + DR1TKCAL + BMXWT + BMXBMI + BMXHT + BMXWAIST + RIDEXMON + BMXARMC + SIAPROXY + DR1TATOC + FIALANG + DR1TS100 + SEQN + LBXTC + SIAINTRP + WTINT2YR, data = train)
+#predict for huber method
+predictions_test<-predict(huber_method, newdata=test)
+#R^squared for hubers method
+(cor(predictions_test,test$y)^2)
 
+#Random Forest Model  
+randomForest(y ~., data = train, mtry = 48, importance = TRUE)
+
+#PCR does not perform as well as Random Forest
+summary(pcr(y~., data=train, scale = TRUE, validation = "CV"))
+
+#PLSR performs very similarly to PCR
+summary(plsr(y~., data=train, scale = TRUE, validation = "CV"))
+
+#Attempt at Neural Network, to be tried and dealt with later
+neuralnetmodel<-neuralnet(y ~ ., train, hidden = 4500)
+predict_testNN = compute(neuralnetmodel, test)
+cor(predict_testNN$net.result,train$y[1:3823])^2
 ```
 
 
@@ -214,5 +246,47 @@ heatmap(x = correlationmatrix, col = palette, symm = TRUE)
 
 
 ```{r}
+#ridageyr, WTINT2YR  ,WTMEC2YR, DR1TVB2 , DR1TPOTA, DR1TMOIS   
+data_e_cig<-mutate(data,E_Cig = case_when(
+  SMQ905 <= 9 ~ "Never",
+  SMQ905 <= 19 ~ "Rarely",
+  SMQ905 <= 29 ~ "Sometimes",
+  SMQ905 <= 39 ~ "Always",
+))
+#count of each category
+table(data_e_cig$E_Cig)
+#make sure all data is omitted
+na.omit(data_e_cig$E_Cig)
+
+#create training and test set based on amount of each category
+data_never = which(data_e_cig$E_Cig == "Never")
+data_rarely = which(data_e_cig$E_Cig == "Rarely")
+data_sometimes = which(data_e_cig$E_Cig == "Sometimes")
+data_always = which(data_e_cig$E_Cig == "Always")
+#training and test data
+train_id = c(sample(data_never, size = trunc(0.70 * length(data_never))),
+sample(data_rarely, size = trunc(0.70 * length(data_rarely))),
+sample(data_sometimes, size = trunc(0.70 * length(data_sometimes))),
+sample(data_always, size = trunc(0.70 * length(data_always))))
+data_new_train = data_e_cig[train_id, ]
+data_new_test = data_e_cig[-train_id, ]
+
+#quick lda
+lda_e_cig<-lda(E_Cig~ SMQ670, data=data_new_train)
+
+#attempting to find train and test error, something is wrong with code
+# predict(lda_e_cig, data_new_train)$class
+# e_cig_lda_test_pred = predict(lda_e_cig, data_new_test)$class
+# 
+# train_err = mean(e_cig_lda_train_pred != data_new_train$E_Cig)
+# test_err = mean(e_cig_lda_test_pred != data_new_test$E_Cig)
+# train_err
+# test_err
+```
+
+
+
+```{r Hannah Scratch Work}
+
 
 ```
