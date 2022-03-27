@@ -43,7 +43,6 @@ bmx09 <- read_xpt("Data/2009/BMX_F.XPT")
 bpx09 <- read_xpt("Data/2009/BPX_F.XPT")
 demo09 <- read_xpt("Data/2009/DEMO_F.XPT")
 dr109 <- read_xpt("Data/2009/DR1TOT_F.XPT")
-View(dr109)
 smq09 <- read_xpt("Data/2009/SMQ_F.XPT")
 tchol09 <- read_xpt("Data/2009/TCHOL_F.XPT")
 
@@ -224,10 +223,11 @@ cor(predict_testNN$net.result,train$y[1:3823])^2
 #Caffeine
 library(Hmisc)
 library(corrplot)
-correlationmatrix = cor(train[,c(which( colnames(train)=="DR1TCAFF" ), which( colnames(train)=="DMDHREDU" ), which( colnames(train)=="INDHHIN2" ), which( colnames(train)=="INDFMIN2" ), which( colnames(train)=="INDFMPIR" ))])
+correlationmatrix = cor(train[,c(which( colnames(train)=="DRD340" ), which( colnames(train)=="DRD350A" ), which( colnames(train)=="DRD350B" ), which( colnames(train)=="DRD350C" ), which( colnames(train)=="DRD350D" ), which( colnames(train)=="DRD350E" ))])
 corrplot(correlationmatrix)
 palette = colorRampPalette(c("green", "white", "red")) (20)
 heatmap(x = correlationmatrix, col = palette, symm = TRUE)
+cor(train$DR1_330Z, train[1:100])
 ```
 
 
@@ -284,9 +284,3 @@ lda_e_cig<-lda(E_Cig~ SMQ670, data=data_new_train)
 # test_err
 ```
 
-
-
-```{r Hannah Scratch Work}
-
-
-```
