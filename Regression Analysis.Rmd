@@ -18,8 +18,12 @@ library(ggplot2)
 library(scales)
 library(glmnet)
 library(Hmisc)
+require(tidyr)
+require(dplyr)
 library(gbm)
 library(SignifReg)
+library(mltools)
+library(dummies)
 train = read_csv("Data/Total/train.csv")
 test = read_csv("Data/Total/test.csv")
 ```
@@ -61,8 +65,14 @@ hist(Caffeine, , xlab=names(numerical)[i], ylab = "Number of Values in this rang
 
 ```{r}
 #Remember to log transform y variable
-nullmodel <- lm(DR1TCAFF ~ 1, data = x)
-fullmodel <- lm(DR1TCAFF ~ ., data = x)
+logtransform = data.frame(x)
+logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
+logtransform = logtransform[!is.infinite(rowSums(logtransform)),]
+logtransformtest = data.frame(test)
+logtransformtest$DR1TCAFF = log(logtransformtest$DR1TCAFF)
+logtransformtest = logtransformtest[!is.infinite(rowSums(logtransformtest)),]
+nullmodel <- lm(DR1TCAFF ~ 1, data = logtransform)
+fullmodel <- lm(DR1TCAFF ~ as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), data = logtransform)
 select.p.fwd <- SignifReg(fit = nullmodel,
 scope = list(lower = formula(nullmodel), upper = formula(fullmodel)),
 alpha = 0.05, direction = "forward",
@@ -74,7 +84,7 @@ alpha = 0.05, direction = "backward",
 adjust.method = "none", trace = FALSE)
 print(summary(select.p.bwd))
 plot(residuals(select.p.bwd))
-print("Both forward and backward selection yield the same model. Therefore, we will use that specific model for our analysis. Outside of a few ")
+print("Both forward and backward selection yield the same model. Therefore, we will use that specific model for our analysis. Here, we have residuals that do not match the residuals for normality. Therefore, we can't use a classic OLS linear regression model. Lets try something more resistant to the violations of of an OLS model.")
 ```
 
 ```{r}
@@ -99,7 +109,7 @@ coef(modelylassoy)
 cat("\nWe have an R-squared of ", modelylassoy$dev.ratio, ".")
 prediction = predict(modelylassoy, s = bestlambda, newx=Xtest)
 cat("\nOverall Error of this model on the testing data is ", mean((prediction - Ytest)**2), ".\n\n")
-#From here we can see that even other forms of linear relationships between variables does not coincide to super accurate prediction. Therefore, we should try a nonlinear prediction method.
+#From here we can see that even other forms of linear relationships between variables does not coincide to super accurate prediction. Therefore, we should try a nonlinear prediction method. 
 ```
 
 ```{r}
