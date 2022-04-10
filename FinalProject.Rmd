@@ -7,6 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+#for repreduciability
+set.seed(245)
+
 library(haven)
 library(readr)
 library(dplyr)
@@ -19,9 +22,11 @@ library(leaps)
 library(glmnet)
 library(pls)
 library(lares)
-#LDA model
+#LDA and QDA model
 library(MASS)
 
+#Tree library
+library(tree)
 #RandomForest
 library(randomForest)
 #gradient boosting
@@ -33,6 +38,9 @@ library(e1071)
 #neural network
 library(keras)
 library(neuralnet)
+
+#KNN library
+library(FNN)
 ```
 
 ## Reading in Data
@@ -319,5 +327,167 @@ chisq.test(e_cig, correct=FALSE)
 #decently related, same issue with size, annual household income
 e_cig <-table(data_e_cig$E_Cig, data_e_cig$INDHHIN2)
 chisq.test(e_cig, correct=FALSE)
+```
 
+```{r Classification Test and Training Data}
+#CREATING THE TEST AND TRAINING DATA
+
+
+#first take out NA's in data frame we will use
+data_diet <-drop_na(data, DRQSDIET, BMIWT, LBXTC, BPXSY1, DR1_330Z, DR1TCAFF)
+
+#first split in test and train for whole data frame
+train_idx <- sample(1:nrow(data_diet), size = floor(.7 * nrow(data_diet)))
+
+#test and training data
+train_data <- data_diet[train_idx, ]
+test_data <- data_diet[-train_idx, ]
+
+#change to factor for test data
+test_data<-filter(test_data, DRQSDIET != 9)
+test_data$DRQSDIET01 <- ifelse(test_data$DRQSDIET == 2, 1, 0)
+
+#change to factor for training data
+train_data<-filter(train_data, DRQSDIET != 9)
+train_data$DRQSDIET01 <- ifelse(train_data$DRQSDIET == 2, 1, 0)
+```
+
+```{r Knn for Classification}
+#SCALE FOR KNN
+#calculate mean and sd
+mean_train <- colMeans(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')])
+sd_train <- sqrt(diag(var(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')])))
+#scale the training and test data
+X_train_scaled <- scale(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')], center = mean_train, scale = sd_train)
+X_test_scaled <- scale(test_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')], center = mean_train, scale = sd_train)
+
+
+#run cross validation in order to find ideal K on training set
+Ks <- seq(1, 352, by = 10)
+
+#vectors to store the MSEs
+trainMSEs <- c()
+testMSEs <- c() 
+
+for(K in Ks) {
+knnTrain <- knn(train = X_train_scaled, cl = train_data$DRQSDIET,
+test = X_train_scaled, k = K)
+knnTest <- knn(train = X_train_scaled, cl = train_data$DRQSDIET,
+test = X_test_scaled, k = K)
+
+trainMSE <- mean(knnTrain != train_data$DRQSDIET)
+testMSE <- mean(knnTest != test_data$DRQSDIET)
+
+trainMSEs <- c(trainMSEs, trainMSE)
+testMSEs <- c(testMSEs, testMSE)
+}
+#plot the train and test errors against the K value
+plot(Ks, trainMSEs, type = "b", lwd = 2, col = "blue",
+xlab = "K", ylab = "MSE")
+lines(Ks, testMSEs, type = "b", lwd = 2, col = "red")
+legend("bottomright", legend = c("Train MSE", "Test MSE"), col = c("blue", "red"), lwd = c(2,2))
+
+#MUCH SMALLER SEQUENCE
+Ks <- seq(1, 40, by = 1)
+
+#vectors to store the MSEs
+trainMSEs <- c()
+testMSEs <- c() 
+
+for(K in Ks) {
+knnTrain <- knn(train = X_train_scaled, cl = train_data$DRQSDIET,
+test = X_train_scaled, k = K)
+knnTest <- knn(train = X_train_scaled, cl = train_data$DRQSDIET,
+test = X_test_scaled, k = K)
+
+trainMSE <- mean(knnTrain != train_data$DRQSDIET)
+testMSE <- mean(knnTest != test_data$DRQSDIET)
+
+trainMSEs <- c(trainMSEs, trainMSE)
+testMSEs <- c(testMSEs, testMSE)
+}
+#plot the train and test errors against the K value
+plot(Ks, trainMSEs, type = "b", lwd = 2, col = "blue", xlab = "K", ylab = "MSE", ylim = c(0,.4))
+lines(Ks, testMSEs, type = "b", lwd = 2, col = "red")
+legend("bottomright", legend = c("Train MSE", "Test MSE"), col = c("blue", "red"), lwd = c(2,2))
+
+#which K produces the minimum for testMSEs
+x = Ks[which.min(testMSEs)]
+
+#KNN with this ideal K
+KNN_11<-knn(train = X_train_scaled, cl = train_data$DRQSDIET,
+test = X_test_scaled, k = x)
+#test error
+mean(KNN_11 != test_data$DRQSDIET)
+#confusion matrix
+table(KNN_11, test_data$DRQSDIET)
+```
+
+
+```{r Decision Trees/Adaboost for Classification Problem}
+#General Classification Tree
+tree_model=tree(factor(DRQSDIET01)~BMIWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF, train_data)
+tree_preds =predict(tree_model, test_data, type = "class")
+test_err <- mean(test_preds != test_data$DRQSDIET01)
+print(test_err)
+
+#prune the model
+cv_tree = cv.tree(tree_model,FUN=prune.misclass)
+par(mfrow=c(1,2))
+plot(cv_tree$size,cv_tree$dev / length(train_data),ylab="cv error", xlab="size",type="b")
+plot(cv_tree$k, cv_tree$dev / length(train),ylab="cv error", xlab="k",type="b")
+
+#test error for pruned data
+prune_model=prune.misclass(tree_model,best=5)
+tree_preds_pruned =predict(prune_model, test_data, type = "class")
+(test_err_pruned <- mean(tree_preds_pruned != test_data$DRQSDIET01))
+
+#confusion matrix
+table(tree_preds_pruned, test_data$DRQSDIET01)
+
+#decision tree for pruned data
+plot(prune_model)
+text(prune_model,pretty=0)
+
+
+
+
+#Adaboost
+#make adaboost model (boosted tree)
+adaboost_mod <- gbm(
+DRQSDIET01~ BMIWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF, 
+data=train_data,
+distribution="adaboost",
+n.trees=1000)
+
+#variable importance plot
+summary(adaboost_mod)
+
+#find test error
+adaboost_test_probs <- predict(adaboost_mod, test_data, n.trees=1000, type='response')
+adaboost_test_preds <- ifelse(adaboost_test_probs > 0.5, 1, 0)
+test_err <- mean(adaboost_test_preds != test_data$DRQSDIET01)
+print(test_err)
+```
+So far it appears that KNN is performing better than Adaboost in terms of test error.
+
+```{r QDA for Classification Problem}
+#make qda model
+qda_model = qda(DRQSDIET01~ BMIWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF, 
+data=train_data)
+
+#training and test error
+train_predictions= predict(qda_model, train_data)$class
+test_predictions = predict(qda_model, test_data)$class
+train_err = mean(train_predictions != train_data$DRQSDIET01)
+test_err = mean(test_predictions != test_data$DRQSDIET01)
+test_err
+```
+
+
+```{r EDA for DRQSDIET}
+data <-filter(data, DRQSDIET != 9)
+table(data$DRQSDIET)
+
+boxplot(BPXSY1~DRQSDIET, data = data)
 ```
