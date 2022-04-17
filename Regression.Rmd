@@ -1,0 +1,146 @@
+---
+title: "Regression"
+author: "Saman Verma"
+date: "3/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(readr)
+library(tidyverse)
+library(caret)
+library(ggplot2)
+library(scales)
+library(glmnet)
+library(Hmisc)
+require(tidyr)
+require(dplyr)
+library(gbm)
+library(SignifReg)
+library(mltools)
+library(dummies)
+train = read_csv("Data/Total/train.csv")
+test = read_csv("Data/Total/test.csv")
+```
+
+
+```{r}
+#Subsetting Dataframe for demographic data and coffee
+x = data.frame(train)
+#Riagender = Gender, Ridageyr = Age RidReth3 = Race INDHHIN2 = Household income DMHREDU = Household Education DMDCITZN = Citizenship Status DR1TCAFF = Coffee
+x = x[, which(names(x)%in%c("RIAGENDR","RIDAGEYR","RIDRETH3","INDHHIN2","DMDHREDU","DMDCITZN", "DR1TCAFF"))]
+test = test[, which(names(test)%in%c("RIAGENDR","RIDAGEYR","RIDRETH3","INDHHIN2","DMDHREDU","DMDCITZN", "DR1TCAFF"))]
+```
+
+
+```{r}
+#Check how many unique values for each categorical variables as well as means and standard deviations for others
+categorical = x[, -which(names(x) %in%c("RIDAGEYR", "DR1TCAFF"))]
+
+for (i in 1:ncol(categorical)){
+  print(names(categorical)[i])
+  print(table(categorical[,i])/length(categorical[,i]))
+}
+
+#The only categorical variable that seems to be completely uneven is the variable related to citizenship status which makes sense as we are studying people in America therefore the vast majority should be american citizens. Limited concern for these variables.
+
+numerical = x[, which(names(x) %in%c("RIDAGEYR", "DR1TCAFF"))]
+for (i in 1:ncol(numerical)){
+  hist(numerical[,i], , xlab=names(numerical)[i], ylab = "Number of Values in this range", main = "Distribution of Numeric Column in Dataset")
+}
+
+#We see a strong right skew in the response variable. Let's log transform this column to see if it helps with the skew.
+Caffeine = log(numerical[, "DR1TCAFF"])
+hist(Caffeine, , xlab=names(numerical)[i], ylab = "Number of Values in this range", main = "Distribution of Log Transformed Column in Dataset")
+
+#This looks better than the other data when it comes to normality. For models assuming normality we can simply log transform it to fit that assumption.
+
+```
+
+
+```{r OLS Regression}
+#Remember to log transform y variable
+logtransform = data.frame(x)
+logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
+logtransform = logtransform[!is.infinite(rowSums(logtransform)),]
+logtransformtest = data.frame(test)
+logtransformtest$DR1TCAFF = log(logtransformtest$DR1TCAFF)
+logtransformtest = logtransformtest[!is.infinite(rowSums(logtransformtest)),]
+nullmodel <- lm(DR1TCAFF ~ 1, data = logtransform)
+fullmodel <- lm(DR1TCAFF ~ as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), data = logtransform)
+select.p.fwd <- SignifReg(fit = nullmodel,
+scope = list(lower = formula(nullmodel), upper = formula(fullmodel)),
+alpha = 0.05, direction = "forward",
+adjust.method = "none", trace = FALSE)
+print(summary(select.p.fwd))
+select.p.bwd <- SignifReg(fit = fullmodel,
+scope = list(lower = formula(nullmodel), upper = formula(fullmodel)),
+alpha = 0.05, direction = "backward",
+adjust.method = "none", trace = FALSE)
+print(summary(select.p.bwd))
+plot(residuals(select.p.bwd))
+print("Both forward and backward selection yield the same model. Therefore, we will use that specific model for our analysis. Here, we have residuals that do not match the residuals for normality. Therefore, we can't use a classic OLS linear regression model. Lets try something more resistant to the violations of of an OLS model.")
+```
+
+```{r Lasso Regression}
+#We shall use a lasso regression for this model. Not only is it more robust to outliers but also it indirectly performs feature selection for our data as it forces some coefficients to 0 depending on its insignificance. Also, we would rather perform lasso here than ridge as we have a relatively small number of predictors as compared to the amount of data we have. It also regularizes the data so that it can perform better generally. We log transform the response variables for the assumption of normality as mentioned in exploratory data section.
+logtransform = data.frame(x)
+logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
+logtransform = logtransform[!is.infinite(rowSums(logtransform)),]
+logtransformtest = data.frame(test)
+logtransformtest$DR1TCAFF = log(logtransformtest$DR1TCAFF)
+logtransformtest = logtransformtest[!is.infinite(rowSums(logtransformtest)),]
+Xtrain = model.matrix(DR1TCAFF~as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), logtransform)[,-1]
+Ytrain = logtransform$DR1TCAFF
+Xtest = model.matrix(log(DR1TCAFF)~as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), logtransformtest)[,-1]
+Ytest = logtransformtest$DR1TCAFF
+Xtest = cbind(Xtest, 0)
+colnames(Xtest)[30] = "as.factor(INDHHIN2)77"
+Xtest = cbind(Xtest, 0)
+colnames(Xtest)[31] = "as.factor(DMDHREDU)7"
+bestlambda = cv.glmnet(Xtrain, Ytrain, alpha = 1)$lambda.min
+modelylassoy = glmnet(Xtrain,Ytrain, alpha = 1, lambda = bestlambda)
+coef(modelylassoy)
+cat("\nWe have an R-squared of ", modelylassoy$dev.ratio, ".")
+prediction = predict(modelylassoy, s = bestlambda, newx=Xtest)
+cat("\nOverall Error of this model on the testing data is ", mean((prediction - Ytest)**2), ".\n\n")
+#From here we can see that even other forms of linear relationships between variables does not coincide to super accurate prediction. Therefore, we should try a nonlinear prediction method. 
+```
+
+```{r Boosted Tree Regression}
+#Here we want to use a methodology that can most accurately predict the coffee consumption regardless of interpretability. Because of fear of overfitting due to lack of observations, I will not use a neural network. Instead, I will use a boosting random forest tree. This slow learning process is better because it is more robust to outliers and is stochastic meaning that through continually subsetting predictors it tries to not get stuck at just one local minimum but actively searches for the global minima in regards to error.
+set.seed(5)
+logtransform = data.frame(x)
+logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
+logtransform = logtransform[!is.infinite(rowSums(logtransform)),]
+logtransformtest = data.frame(test)
+logtransformtest$DR1TCAFF = log(logtransformtest$DR1TCAFF)
+logtransformtest = logtransformtest[!is.infinite(rowSums(logtransformtest)),]
+idealntrees = 0
+idealdepth = 0
+tempvalue = .Machine$double.xmax
+for (ntrees in seq(1, 10001, by = 1000)){
+  for(depth in seq(1,6)){
+    boosty = gbm(DR1TCAFF~as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), data = logtransform, distribution = "gaussian", shrinkage = .01, interaction.depth = depth, n.trees = ntrees)
+    testvalue = mean((predict(boosty,newdata = logtransformtest)-logtransformtest$DR1TCAFF)^2)
+    if(testvalue < tempvalue){
+      tempvalue = testvalue
+      idealdepth = depth
+      idealntrees = ntrees
+    }
+    
+  }
+}
+boosty = gbm(DR1TCAFF~as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), data = logtransform, distribution = "gaussian", shrinkage = .01, interaction.depth = idealdepth, n.trees = idealntrees)
+print(summary(boosty))
+testvalue = mean((predict(boosty,newdata = logtransformtest)-logtransformtest$DR1TCAFF)^2)
+rsquare = 1-sum((predict(boosty,newdata = logtransformtest)-logtransformtest$DR1TCAFF)^2)/sum((logtransformtest$DR1TCAFF-mean(logtransformtest$DR1TCAFF))^2)
+cat("\nWe have an R^2 of ",rsquare, ".\n\n")
+cat("\nOverall Error of this model on the testing data is ",testvalue, ".\n\n")
+#As we can see, the regression tree does better in terms of predicitng the amount of coffee as compared to lasso (lower test MSE and higher R^2). Additionally, for a response variable that has a lot of potential predictors, to be able to explain coffee consumption decently with demographic data is huge. Furthermore, based off of the charge, we can see that age is by far the most important predictor for the tree.
+```

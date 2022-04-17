@@ -1,5 +1,5 @@
 ---
-title: "STATS 415 Final Project - Classification"
+title: "Classification"
 author: "Sarah Kurata"
 date: "3/27/2022"
 output: html_document
@@ -15,13 +15,26 @@ library(tidyverse)
 #libraries for subset methods
 library(SignifReg)
 library(leaps)
+
 #shrinkage methods
 library(glmnet)
 library(pls)
 library(lares)
-library(class)
-library(GLDEX)
-library(stats)
+#LDA and QDA model
+library(MASS)
+
+#Tree library
+library(tree)
+#RandomForest
+library(randomForest)
+#gradient boosting
+library(gbm)
+
+#support vector classifier
+library(e1071)
+
+#KNN library
+library(FNN)
 ```
 
 ## Clean data and split into training and test subsets
@@ -35,85 +48,143 @@ df = read.csv('./Data/full_data.csv')
 
 ### Data cleaning
 
-```{r}
-table(df$DRQSDIET) # 224 missing responses
-diet_data = df[-which(df$DRQSDIET == 9),] #drop missing responses
-diet_data = diet_data[-which(is.na(diet_data$DRQSDIET)),] # drop na
-nrow(diet_data)
-diet_data$DRQSDIET = ifelse(diet_data$DRQSDIET == 2, 0, 1) # YES = 1, NO = 0
-diet_data$RIAGENDR = ifelse(diet_data$RIAGENDR == 2, 0, 1) # female = 0, male = 1
-```
+```{r Classification Test and Training Data}
+#CREATING THE TEST AND TRAINING DATA
 
-## SIGNIFICANT PREDICTORS 
+#first take out NA's in data frame we will use
+data_diet <-drop_na(data, DRQSDIET, BMIWT, LBXTC, BPXSY1, DR1_330Z, DR1TCAFF)
 
-- BMXBMI = BMI
-- RIDAGEYR = AGE
-- DMDMARTL = marital status
-- RIDEXPRG = pregnancy status
-- DMDHHSZA = # children 5 yrs / younger
-- DMDHHSZB = # children 6-17
-- RIAGENDR = GENDER
-- LBXTC = total cholesterol
-- BPXSY1 = blood pressure
-- SMQ900 = ecig use
-- DR1TKCAL = energy
-- DR1TPROT = protein
-- DR1TCARB = carbohydrate
-- DR1TSUGR = total sugars
-- DR1TFIBE = dietary fiber
-- DR1TTFAT = total fat
-- DR1TVC = vitamin C
-- DR1TVD = vitamin D
-- DR1TCAFF = caffeine
-- DMDBORN4 = COUNTRY OF BIRTH
+#first split in test and train for whole data frame
+train_idx <- sample(1:nrow(data_diet), size = floor(.7 * nrow(data_diet)))
 
-```{r}
-#log_reg <- glm(DRQSDIET ~ BMXBMI + RIDAGEYR + DMDMARTL + RIDEXPRG + DMDHHSZA + DMDHHSZB + RIAGENDR + LBXTC + BPXSY1 + SMQ900 + DR1TKCAL + DR1TPROT + DR1TCARB + DR1TSUGR + DR1TFIBE + DR1TTFAT + DR1TVB12 + DR1TVC + DR1TVD + DR1TCAFF, diet_data, family = "binomial")
+#test and training data
+train_data <- data_diet[train_idx, ]
+test_data <- data_diet[-train_idx, ]
+
+#change to factor for test data
+test_data<-filter(test_data, DRQSDIET != 9)
+test_data$DRQSDIET01 <- ifelse(test_data$DRQSDIET == 2, 1, 0)
+
+#change to factor for training data
+train_data<-filter(train_data, DRQSDIET != 9)
+train_data$DRQSDIET01 <- ifelse(train_data$DRQSDIET == 2, 1, 0)
 ```
 
 
-## Testing weight loss diet as response (DRQSDT1)
+```{r KNN}
+#SCALE FOR KNN
+#calculate mean and sd
+mean_train <- colMeans(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')])
+sd_train <- sqrt(diag(var(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')])))
+#scale the training and test data
+X_train_scaled <- scale(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')], center = mean_train, scale = sd_train)
+X_test_scaled <- scale(test_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')], center = mean_train, scale = sd_train)
 
-### Cleaning
 
-```{r}
-# we made a subset of all participants who ARE on a diet
-# those who stated they are on weight loss diet have value 1
-# na values are just those on other diets, have value 0
-diet_data$DRQSDT1[is.na(diet_data$DRQSDT1)] = 0
-table(diet_data$DRQSDT1)
+# Cross validation to find optimal K
+Ks <- seq(1, 30, by = 1)
+
+#vectors to store the MSEs
+trainMSEs <- c()
+testMSEs <- c() 
+
+for(K in Ks) {
+knnTrain <- knn(train = X_train_scaled, cl = train_data$DRQSDIET,
+test = X_train_scaled, k = K)
+knnTest <- knn(train = X_train_scaled, cl = train_data$DRQSDIET,
+test = X_test_scaled, k = K)
+
+trainMSE <- mean(knnTrain != train_data$DRQSDIET)
+testMSE <- mean(knnTest != test_data$DRQSDIET)
+
+trainMSEs <- c(trainMSEs, trainMSE)
+testMSEs <- c(testMSEs, testMSE)
+}
+#plot the train and test errors against the K value
+plot(Ks, trainMSEs, type = "b", lwd = 2, col = "blue", xlab = "K", ylab = "MSE", ylim = c(0,.4))
+lines(Ks, testMSEs, type = "b", lwd = 2, col = "red")
+legend("bottomright", legend = c("Train MSE", "Test MSE"), col = c("blue", "red"), lwd = c(2,2))
+
+#which K produces the minimum for testMSEs
+x = Ks[which.min(testMSEs)]
+
+#KNN with this ideal K
+KNN_11<-knn(train = X_train_scaled, cl = train_data$DRQSDIET,
+test = X_test_scaled, k = x)
+#test error
+mean(KNN_11 != test_data$DRQSDIET)
+#confusion matrix
+table(KNN_11, test_data$DRQSDIET)
 ```
 
-## SIGNIFICANT PREDICTORS 
 
-- BMXBMI = BMI
-- RIDAGEYR = AGE
-- RIDEXPRG = pregnancy status
-- DMDHHSZA = # children 5 yrs / younger
-- DMDHHSZB = # children 6-17
-- RIAGENDR = GENDER
-- LBXTC = total cholesterol
-- BPXSY1 = blood pressure
-- SMQ900 = ecig use
-- DR1TKCAL = energy
-- DR1TPROT = protein
-- DR1TCARB = carbohydrate
-- DR1TSUGR = total sugars
-- DR1TFIBE = dietary fiber
-- DR1TTFAT = total fat
-- DR1TVC = vitamin C
-- DR1TVD = vitamin D
-- DR1TCAFF = caffeine
-- DMDBORN4 = COUNTRY OF BIRTH
+```{r AdaBoost}
 
-Compared to DRQSDIET, these predictors are no longer significant:
-- DMDMARTL = marital status
-- SMQ900 = Ecig use
-- DR1TTFAT = total fat
+# TODO: DELETE  UP TO ADABOOST?
+#General Classification Tree
+tree_model=tree(factor(DRQSDIET01)~BMIWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF, train_data)
+tree_preds =predict(tree_model, test_data, type = "class")
+test_err <- mean(test_preds != test_data$DRQSDIET01)
+print(test_err)
+
+#prune the model
+cv_tree = cv.tree(tree_model,FUN=prune.misclass)
+par(mfrow=c(1,2))
+plot(cv_tree$size,cv_tree$dev / length(train_data),ylab="cv error", xlab="size",type="b")
+plot(cv_tree$k, cv_tree$dev / length(train),ylab="cv error", xlab="k",type="b")
+
+#test error for pruned data
+prune_model=prune.misclass(tree_model,best=5)
+tree_preds_pruned =predict(prune_model, test_data, type = "class")
+(test_err_pruned <- mean(tree_preds_pruned != test_data$DRQSDIET01))
+
+#confusion matrix
+table(tree_preds_pruned, test_data$DRQSDIET01)
+
+#decision tree for pruned data
+plot(prune_model)
+text(prune_model,pretty=0)
 
 
-```{r}
-log_reg <- glm(DRQSDT1 ~ DMDBORN4, diet_data, family = "binomial")
-summary(log_reg)
+
+
+#Adaboost
+#make adaboost model (boosted tree)
+adaboost_mod <- gbm(
+DRQSDIET01~ BMIWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF, 
+data=train_data,
+distribution="adaboost",
+n.trees=1000)
+
+#variable importance plot
+summary(adaboost_mod)
+
+#find test error
+adaboost_test_probs <- predict(adaboost_mod, test_data, n.trees=1000, type='response')
+adaboost_test_preds <- ifelse(adaboost_test_probs > 0.5, 1, 0)
+test_err <- mean(adaboost_test_preds != test_data$DRQSDIET01)
+print(test_err)
+```
+
+
+```{r QDA for Classification Problem}
+
+# TODO: DELETE?
+#look at individual predictions
+
+#make qda model
+qda_model = qda(DRQSDIET01~ BMIWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF, 
+data=train_data)
+
+#training and test error
+train_predictions= predict(qda_model, train_data)$class
+test_predictions = predict(qda_model, test_data)$class
+train_err = mean(train_predictions != train_data$DRQSDIET01)
+test_err = mean(test_predictions != test_data$DRQSDIET01)
+test_err
+```
+
+```{r Support Vector Classifier}
+
 ```
 
