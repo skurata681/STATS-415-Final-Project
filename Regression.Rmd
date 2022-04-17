@@ -39,7 +39,7 @@ test = test[, which(names(test)%in%c("RIAGENDR","RIDAGEYR","RIDRETH3","INDHHIN2"
 ```
 
 
-```{r}
+```{r Data Exploration}
 #Check how many unique values for each categorical variables as well as means and standard deviations for others
 categorical = x[, -which(names(x) %in%c("RIDAGEYR", "DR1TCAFF"))]
 
@@ -74,7 +74,7 @@ boxplot(DR1TCAFF ~ DMDCITZN, data = x, main = "Citizenship Status versus Caffein
 ```
 
 
-```{r}
+```{r OLS Model}
 #Least Squares is the most interpretable and so in terms of finding out how each demographic variable affects caffeine consumption it could prove to be useful.
 logtransform = data.frame(x)
 logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
@@ -98,7 +98,7 @@ plot(residuals(select.p.bwd), main = "Residual Plot of OLS Model", ylab = "Resid
 print("Both forward and backward selection yield the same model. Therefore, we will use that specific model for our analysis. Here, we have residuals that do not match the residuals for normality. Therefore, we can't use a classic OLS linear regression model. Lets try something more resistant to the violations of of an OLS model.")
 ```
 
-```{r}
+```{r Lasso}
 #We shall use a lasso regression for this model. Not only is it more robust to outliers but also it indirectly performs feature selection for our data as it forces some coefficients to 0 depending on its insignificance. Also, we would rather perform lasso here than ridge as we have a relatively small number of predictors as compared to the amount of data we have. It also regularizes the data so that it can perform better generally. We log transform the response variables for the assumption of normality as mentioned in exploratory data section.
 logtransform = data.frame(x)
 logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
@@ -125,7 +125,7 @@ cat("\nOverall Error of this model on the testing data is ", mean((prediction - 
 
 
 
-```{r}
+```{r Tree}
 #Here we want to use a methodology that can most accurately predict the coffee consumption regardless of interpretability. Because of fear of overfitting due to lack of observations, I will not use a neural network. Instead, I will use a boosting tree. This slow learning process is better because it is more robust to outliers and is stochastic meaning that through continually subsetting predictors it tries to not get stuck at just one local minimum but actively searches for the global minima in regards to error.
 logtransform = data.frame(x)
 logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
