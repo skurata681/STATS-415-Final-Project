@@ -26,6 +26,7 @@ library(mltools)
 library(dummies)
 train = read_csv("Data/Total/train.csv")
 test = read_csv("Data/Total/test.csv")
+set.seed(5)
 ```
 
 
@@ -38,7 +39,7 @@ test = test[, which(names(test)%in%c("RIAGENDR","RIDAGEYR","RIDRETH3","INDHHIN2"
 ```
 
 
-```{r}
+```{r Data Exploration}
 #Check how many unique values for each categorical variables as well as means and standard deviations for others
 categorical = x[, -which(names(x) %in%c("RIDAGEYR", "DR1TCAFF"))]
 
@@ -56,15 +57,25 @@ for (i in 1:ncol(numerical)){
 
 #We see a strong right skew in the response variable. Let's log transform this column to see if it helps with the skew.
 Caffeine = log(numerical[, "DR1TCAFF"])
-hist(Caffeine, , xlab=names(numerical)[i], ylab = "Number of Values in this range", main = "Distribution of Log Transformed Column in Dataset")
+hist(Caffeine, , xlab=names(numerical)[2], ylab = "Number of Values in this range", main = "Distribution of Log Transformed Column in Dataset")
 
 #This looks better than the other data when it comes to normality. For models assuming normality we can simply log transform it to fit that assumption.
 
+logyxgpf = ggplot(x, aes(x=RIDAGEYR, y=log(DR1TCAFF)) )
+logyxgpf + geom_smooth(se=FALSE, color = "red") +xlab("Age in Years") + ylab("Caffeine Consumed in Milligrams") +ggtitle("Age vs Caffeine Consumed Labelled by Race")+ geom_point(aes(colour = RIDRETH3))+ labs(color='Race')
+
+boxplot(DR1TCAFF ~ RIAGENDR, data = x, main = "Gender versus Caffeine Consmption", xlab = "Gender", ylab = "Caffeine Consumed in Milligrams", names = c("Males", "Females"))
+
+boxplot(DR1TCAFF ~ INDHHIN2, data = x, main = "Annual Household Income versus Caffeine Consmption", xlab = "Annual Household Income in Thousands of Dollars", ylab = "Caffeine Consumed in Milligrams", names = c("$0-$5", "$5-$10","$10-15","$15-$20","$20-$25","$25-$35","$35-$45","$45-$55","$55-$65","$65-$75","$20 and Over","Under $20","$75-$100","$100 and Over","Refused", "Don't Know"))
+
+boxplot(DR1TCAFF ~ DMDHREDU, data = x, main = "Education Level versus Caffeine Consmption", xlab = "Education Level", ylab = "Caffeine Consumed in Milligrams", names = c("Less than 9th", "9th-11th","GED or Equivalent","Some College or Equivalent","College Graduate or Above","Refused","Don't Know"))
+
+boxplot(DR1TCAFF ~ DMDCITZN, data = x, main = "Citizenship Status versus Caffeine Consmption", xlab = "Citizenship Status", ylab = "Caffeine Consumed in Milligrams", names = c("Citizen", "Not Citizen","Refused","Don't Know"))
 ```
 
 
-```{r}
-#Remember to log transform y variable
+```{r OLS Model}
+#Least Squares is the most interpretable and so in terms of finding out how each demographic variable affects caffeine consumption it could prove to be useful.
 logtransform = data.frame(x)
 logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
 logtransform = logtransform[!is.infinite(rowSums(logtransform)),]
@@ -83,11 +94,11 @@ scope = list(lower = formula(nullmodel), upper = formula(fullmodel)),
 alpha = 0.05, direction = "backward",
 adjust.method = "none", trace = FALSE)
 print(summary(select.p.bwd))
-plot(residuals(select.p.bwd))
+plot(residuals(select.p.bwd), main = "Residual Plot of OLS Model", ylab = "Residual Value")
 print("Both forward and backward selection yield the same model. Therefore, we will use that specific model for our analysis. Here, we have residuals that do not match the residuals for normality. Therefore, we can't use a classic OLS linear regression model. Lets try something more resistant to the violations of of an OLS model.")
 ```
 
-```{r}
+```{r Lasso}
 #We shall use a lasso regression for this model. Not only is it more robust to outliers but also it indirectly performs feature selection for our data as it forces some coefficients to 0 depending on its insignificance. Also, we would rather perform lasso here than ridge as we have a relatively small number of predictors as compared to the amount of data we have. It also regularizes the data so that it can perform better generally. We log transform the response variables for the assumption of normality as mentioned in exploratory data section.
 logtransform = data.frame(x)
 logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
@@ -97,7 +108,7 @@ logtransformtest$DR1TCAFF = log(logtransformtest$DR1TCAFF)
 logtransformtest = logtransformtest[!is.infinite(rowSums(logtransformtest)),]
 Xtrain = model.matrix(DR1TCAFF~as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), logtransform)[,-1]
 Ytrain = logtransform$DR1TCAFF
-Xtest = model.matrix(log(DR1TCAFF)~as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), logtransformtest)[,-1]
+Xtest = model.matrix(DR1TCAFF~as.factor(RIAGENDR)+RIDAGEYR+as.factor(RIDRETH3)+as.factor(INDHHIN2)+as.factor(DMDHREDU)+as.factor(DMDCITZN), logtransformtest)[,-1]
 Ytest = logtransformtest$DR1TCAFF
 Xtest = cbind(Xtest, 0)
 colnames(Xtest)[30] = "as.factor(INDHHIN2)77"
@@ -112,9 +123,10 @@ cat("\nOverall Error of this model on the testing data is ", mean((prediction - 
 #From here we can see that even other forms of linear relationships between variables does not coincide to super accurate prediction. Therefore, we should try a nonlinear prediction method. 
 ```
 
-```{r}
-#Here we want to use a methodology that can most accurately predict the coffee consumption regardless of interpretability. Because of fear of overfitting due to lack of observations, I will not use a neural network. Instead, I will use a boosting random forest tree. This slow learning process is better because it is more robust to outliers and is stochastic meaning that through continually subsetting predictors it tries to not get stuck at just one local minimum but actively searches for the global minima in regards to error.
-set.seed(5)
+
+
+```{r Tree}
+#Here we want to use a methodology that can most accurately predict the coffee consumption regardless of interpretability. Because of fear of overfitting due to lack of observations, I will not use a neural network. Instead, I will use a boosting tree. This slow learning process is better because it is more robust to outliers and is stochastic meaning that through continually subsetting predictors it tries to not get stuck at just one local minimum but actively searches for the global minima in regards to error.
 logtransform = data.frame(x)
 logtransform$DR1TCAFF = log(logtransform$DR1TCAFF)
 logtransform = logtransform[!is.infinite(rowSums(logtransform)),]
