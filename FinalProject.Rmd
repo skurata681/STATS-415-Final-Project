@@ -156,13 +156,6 @@ firstprediction <-  firstprediction%>%rename(SEQN=test.SEQN)
 firstprediction<-  firstprediction%>%rename(y=x)
 write_csv(firstprediction, "Predictions/Kaggle/firstPrediction.csv")
 
-#KAGGLE ATTEMPTS. TRIED BACKWARD AND FORWARD SELECTION WITH REGSUBSETS
-    #LOO-CV
-    # n_predictors <- ncol(train) - 1
-    # regfit.full <- regsubsets(y ~ ., data = train, nvmax = n_predictors, method = "backward")
-    # reg.summary <- summary(regfit.full)
-    # reg.summary$rsq
-#BY RUNNING BACKWARDS AND FORWARD SELECTION WE GOT LOW RSQ VALUE OF APPROXIMATELY .32
 
 #KAGGLE ATTEMPTS FORWARD SELECTION, this method looks at p-values
 nullmodel <- lm(y ~ 1, data = non_correlated)
@@ -177,97 +170,13 @@ summary(select.p.fwd)
 forward_selection_model_signifreg <-lm(formula = y ~ SMAQUEX2 + BMXARML + DMDBORN4 + BPXSY1 + BPACSZ + DR1TSUGR + DR1TFIBE + RIDAGEYR + DR1TKCAL + BMXWT + BMXBMI + BMXHT + BMXWAIST + RIDEXMON + BMXARMC + SIAPROXY + DR1TATOC + FIALANG + DR1TS100 + SEQN + LBXTC + SIAINTRP + WTINT2YR, data = train)
 summary(forward_selection_model_signifreg)
 
-#check model diagnostics of forward selection model
-ggplot() + geom_point(mapping = aes(x = fitted(forward_selection_model_signifreg), residuals(forward_selection_model_signifreg))) + geom_hline(yintercept = 0) + xlab("Fitted values") + ylab("Residuals")
-
-#normal qq plot shows that the distribution is longtailed, cauchy. this is concerning for least squares
-qqnorm(forward_selection_model_signifreg$residuals, ylab = "Residuals")
-qqline(forward_selection_model_signifreg$residuals)
-
-
-
-#attempt huber method because long-tailed distribution
-huber_method<-rlm(formula = y ~ SMAQUEX2 + BMXARML + DMDBORN4 + BPXSY1 + BPACSZ + DR1TSUGR + DR1TFIBE + RIDAGEYR + DR1TKCAL + BMXWT + BMXBMI + BMXHT + BMXWAIST + RIDEXMON + BMXARMC + SIAPROXY + DR1TATOC + FIALANG + DR1TS100 + SEQN + LBXTC + SIAINTRP + WTINT2YR, data = train)
-#predict for huber method
-predictions_test<-predict(huber_method, newdata=test)
-#R^squared for hubers method
-(cor(predictions_test,test$y)^2)
-
 #Random Forest Model  
 randomForest(y ~., data = train, mtry = 48, importance = TRUE)
 
-#PCR does not perform as well as Random Forest
-summary(pcr(y~., data=train, scale = TRUE, validation = "CV"))
-
-#PLSR performs very similarly to PCR
-summary(plsr(y~., data=train, scale = TRUE, validation = "CV"))
-
-#Attempt at Neural Network, to be tried and dealt with later
+#Neural Network
 neuralnetmodel<-neuralnet(y ~ ., train, hidden = 4500)
 predict_testNN = compute(neuralnetmodel, test)
 cor(predict_testNN$net.result,train$y[1:3823])^2
-
-
-
-
-#standardized the data
-#dummy encoding
-#don't transform the response variable
-
-
-
-# table(train$DRQSDIET)
-# c('BMDSTATS', 'BPAARM', 'BPXPULS', 'BPXPTY', 'BPAEN1', 'BPAEN2', 'BPAEN3' , 'SDDSRVYR', 'RIDEXMON', 'RIAGENDR', 'RIDRETH1', 'DMDCITZN', 'DMDHRGND', 'DMDHRMAR', 'SIALANG', 'SIAPROXY', 'SIAINTRP','FIALANG', 'FIAPROXY', 'FIAINTRP', 'MIALANG', 'MIAPROXY', 'MIAINTRP', 'SDMVPSU', 'DR1DAY', 'DR1LANG', 'DBQ095Z', 'DRQSPREP', 'DRQSDIET', )
-
-# train$BMDSTATS<-ifelse(train$BMDSTATS==3,1,0)
-# train$BPAARM<-ifelse(train$BPAARM==2,1,0)
-# train$BPXPULS<-ifelse(train$BPAARM==2,1,0)
-# train$BPXPTY<-ifelse(train$BPXPTY==2,1,0)
-# train$BPAEN1<-ifelse(train$BPAEN1==2,1,0)
-# train$BPAEN2<-ifelse(train$BPAEN2==2,1,0)
-# train$BPAEN3<-ifelse(train$BPAEN3==2,1,0)
-# train$RIDEXMON<-ifelse(train$RIDEXMON==2,1,0)
-# train$RIAGENDR<-ifelse(train$RIAGENDR==2,1,0)
-# train$DMDHRGND <- ifelse(train$DMDHRGND==2,1,0)
-# train$SIALANG <- ifelse(train$SIALANG==2,1,0)
-# train$SIAPROXY <- ifelse(train$SIAPROXY==2,1,0)
-# train$SIAINTRP <- ifelse(train$SIAINTRP==2,1,0)
-# train$FIALANG <- ifelse(train$FIALANG==2,1,0)
-# train$FIAPROXY <- ifelse(train$FIAPROXY==2,1,0)
-# train$FIAINTRP <- ifelse(train$FIAINTRP==2,1,0)
-# train$MIALANG <- ifelse(train$MIALANG==2,1,0)
-# train$MIAPROXY <- ifelse(train$MIAPROXY==2,1,0)
-# train$MIAINTRP <- ifelse(train$MIAINTRP==2,1,0)
-
-
-# train<-as.data.frame(train)
-# scale_train<-scale(train[, -which(names(train) %in% c('BMDSTATS', 'BPAARM', 'BPXPULS', 'BPXPTY', 'BPAEN1', 'BPAEN2', 'BPAEN3', 'RIDEXMON', 'RIAGENDR', 
-# 'DMDHRGND', 'SIALANG', 'SIAPROXY', 'SIAINTRP','FIALANG', 'FIAPROXY', 'FIAINTRP', 'MIALANG', 'MIAPROXY', 'MIAINTRP'))])
-# scale_train<-as.data.frame(scale_train)
-
-
-# scale_train$BMDSTATS <- train$BMDSTATS
-# scale_train$BPAARM <- train$BPAARM
-# scale_train$BPXPULS <- train$BPXPULS
-# scale_train$BPXPTY <- train$BPXPTY
-# scale_train$BPAEN1 <- train$BPAEN1
-# scale_train$BPAEN2 <- train$BPAEN2
-# scale_train$BPAEN3 <- train$BPAEN3
-# scale_train$RIDEXMON <- train$RIDEXMON
-# scale_train$RIAGENDR <- train$RIAGENDR
-# scale_train$DMDHRGND <- train$DMDHRGND
-# scale_train$SIALANG <- train$SIALANG
-# scale_train$SIAPROXY <- train$SIAPROXY
-# scale_train$SIAINTRP <- train$SIAINTRP
-# scale_train$FIALANG <- train$FIALANG
-# scale_train$FIAPROXY <- train$FIAPROXY
-# scale_train$FIAINTRP <- train$FIAINTRP
-# scale_train$MIALANG <- train$MIALANG
-# scale_train$MIAPROXY <- train$MIAPROXY
-# scale_train$MIAINTRP <- train$MIAINTRP
-
-
-
 
 scale_train<-scale(train)
 scale_train<-as.data.frame(scale_train)
@@ -281,114 +190,18 @@ train_idx <- seq(nrow(scale_train))[-test_idx]
 train_neural_networks <- scale_train[train_idx,]
 test_neural_networks <- scale_train[test_idx,]
 
-
-
-
 #new attempt at neural network
 xTr = model.matrix(lm(y ~ . - 1, data=train_neural_networks))
 yTr = train_neural_networks$y
 xTe = model.matrix(lm(y ~ . - 1, data=test_neural_networks))
 yTe = test_neural_networks$y
 
-#rep(0,3823)
 xTrain = model.matrix(lm(y ~ . - 1, data=scale_train))
 yTrain = scale_train$y
 xTest = model.matrix(lm(y ~ . - 1, data=scale_test))
 
-
-#two layer model
-
-
-modnn <- keras_model_sequential () %>%
- layer_dense(units = 64, activation = "relu") %>% # hidden layer 1
- layer_dense(units = 64, activation = "relu") %>% # hidden layer 2
- layer_dense(units = 1) # output layer, no activation
-
-
- modnn %>% compile(loss = "mse",
- optimizer = optimizer_adam(learning_rate=0.01))
-#see the amount of time it takes, fit the model.
-
-#max batch size is number of columns
-#epochs need to run and see if it keeps improving or not
-start_time <- Sys.time()
-history <- modnn %>% fit(
-xTr, yTr, epochs = 200, batch_size = 32,
-validation_data = list(xTe, yTe)
-)
-end_time <- Sys.time()
-end_time - start_time
-
-#predictions and r^squared
-npred <- c(predict(modnn , xTe))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-cor(c(predict(modnn, xTr)), yTr)^2
-#GETTING SAMMMMMMMEEEEEEE PREDICTIONS
-predict(modnn, xTr)
-
-modnn_1 <- keras_model_sequential () %>%
-  layer_dense(units = 1)
-modnn_1 %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.01))
-start_time <- Sys.time()
-history <- modnn_1 %>% fit(
-xTr, yTr, epochs = 150, batch_size = 32,
-validation_data = list(xTe, yTe)
-)
-end_time <- Sys.time()
-end_time - start_time
-
-npred <- c(predict(modnn_1 , xTe))
-cor(npred, yTe)^2 %>% round(3)  # test r^2 from neural network predictions
-
-
-
-
-
-#make sure regularization is low enough
-
-
-modnn_2 <- keras_model_sequential () %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-  layer_dense(units = 1)
-
-modnn_2 %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.01))
-
-
-start_time <- Sys.time()
-history <- modnn_2 %>% fit(
-xTr, yTr, epochs = 200, batch_size = 6245,
-validation_data = list(xTe, yTe)
-)
-end_time <- Sys.time()
-end_time - start_time
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-
-npred <- c(predict(modnn_2 , xTe))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-cor(c(predict(modnn_2, xTr)), yTr)^2 # train r^2
-
-predict(modnn_2, xTr)
-
-
-#perhaps use random forest for variable selection
-
-
-#SO FAR BEST NEURAL NETWORK, ran it and got .51
-############################################################################################
+#NEURAL NETWORK
+#####################################################################################################################################
 modnn_2 <- keras_model_sequential () %>%
 layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.001)) %>%
 layer_dropout(rate=0.4) %>%
@@ -418,51 +231,9 @@ colnames(neural_network_prediction)
 neural_network_prediction <-  neural_network_prediction%>%rename(SEQN=test.SEQN)
 neural_network_prediction<-  neural_network_prediction%>%rename(y=npred)
 write_csv(neural_network_prediction, "Predictions/Kaggle/neural_network_Prediction.csv")
-#############################################################################################
 
-
-#let's try cross validation for the best rate value
-
-
-modnn_more_layers <- keras_model_sequential () %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer  regularizer_l2(0.01)) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-  layer_dense(units = 1)
-modnn_more_layers %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.01))
-start_time <- Sys.time()
-history <- modnn_2 %>% fit(
-xTr, yTr, epochs = 200, batch_size = 4000,
-validation_data = list(xTe, yTe)
-)
-end_time <- Sys.time()
-end_time - start_time
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-npred <- c(predict(modnn_more_layers , test))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-##################################################################################
-
-modnn_validation <- keras_model_sequential () %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-  layer_dense(units = 1)
-modnn_validation %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.0001))
-start_time <- Sys.time()
-history<-modnn_validation %>% fit(
-xTr, yTr, epochs = 200, batch_size = 32, validation_split =0.1, verbose =2,
-)
-end_time <- Sys.time()
-end_time - start_time
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-npred <- c(predict(modnn_validation , xTe))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-
-#####################################################################################
+#####################################################################################################################################
+#look at different combinations in order to find ideal value of each flag or different parameter
 FLAGS <- flags(
   flag_numeric("dropout1", 0.4),
   flag_numeric("dropout2", 0.3),
@@ -481,6 +252,7 @@ FLAGS <- flags(
   flag_numeric("learning1", 0.01)
 )
 
+#run model
 model_exhaust <- keras_model_sequential () %>%
 layer_dense(units = FLAGS$units1, activation = "relu", kernel_regularizer = regularizer_l1(FLAGS$regulizar1)) %>%
 layer_dropout(rate=FLAGS$dropout1) %>%
@@ -491,60 +263,38 @@ layer_dropout(rate=FLAGS$dropout3) %>%
 layer_dense(units = FLAGS$units4, activation = "relu", kernel_regularizer = regularizer_l1(FLAGS$regulizar4)) %>%
 layer_dropout(rate=FLAGS$dropout4) %>%
   layer_dense(units = 1)
-
-
 model_exhaust %>% compile(loss = "mse",
 optimizer = optimizer_adam(learning_rate=FLAGS$learning1))
 
+
+#use tuning run with model and data in additional R script, attempted numerous combinations to assist with computational time
 runs_epochs <- tuning_run("hyperparametertuning.R", flags = list(
-  dropout1 = c(0.2), #ran
-  dropout2 = c(0.2), #ran
-  dropout3 = c(0.4), #ran
-  dropout4 = c(0.5), #ran
-  units1 = c(64),
-  units2 = c(64),
-  units3 = c(32),
-  units4=  c(64),
+  dropout1 = c(.2,.3,.4), 
+  dropout2 = c(.2,.3.,4), 
+  dropout3 = c(.2,.3,.4),
+  dropout4 = c(.2,.3,.4),
+  units1 = c(32,64),
+  units2 = c(32,64),
+  units3 = c(32,64),
+  units4=  c(32,64),
   regulizar1 = c(.00001),
   regulizar2 = c(.00001),
   regulizar3 = c(.00001),
   regulizar4 = c(.00001),
-  epochs1 = c(300),
-  batchsize1 = c(400),
+  epochs1 = c(100,200,300),
+  batchsize1 = c(30,100,400, 1000, 4000),
   learning1 = c(.001)
 ), confirm=FALSE)
+
+#print best combination based on mse
 runs_epochs[order(runs_epochs$eval_, decreasing = FALSE), ]
-
-
-
-runs_try <- tuning_run("hyperparametertuning.R", flags = list(
-  dropout1 = c(0.2), #ran
-  dropout2 = c(0.2), #ran
-  dropout3 = c(0.4), #ran
-  dropout4 = c(0.5), #ran
-  units1 = c(64),
-  units2 = c(64),
-  units3 = c(32),
-  units4=  c(64),
-  regulizar1 = c(.00001),
-  regulizar2 = c(.00001),
-  regulizar3 = c(.00001),
-  regulizar4 = c(.00001),
-  epochs1 = c(300),
-  batchsize1 = c(400),
-  learning1 = c(.001)
-), confirm=FALSE)
-runs_try[order(runs_try$eval_, decreasing = FALSE), ]
-
-runs_try
-############################################################################################
-
+####################################################################################################################################
+#access information for each combination
+#when running replace "runs/2022-04..." with the results got
 runs$flag_dropout1[runs$run_dir == "runs/2022-04-16T02-08-47Z"]
 runs$flag_dropout2[runs$run_dir == "runs/2022-04-16T02-08-47Z"]
 runs$flag_dropout3[runs$run_dir == "runs/2022-04-16T02-08-47Z"]
 runs$flag_dropout4[runs$run_dir == "runs/2022-04-16T02-08-47Z"]
-
-
 
 #number one choice
 runs$flag_units1[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
@@ -557,152 +307,13 @@ runs$flag_units1[runs$run_dir == "runs/2022-04-16T03-16-48Z"]
 runs$flag_units2[runs$run_dir == "runs/2022-04-16T03-16-48Z"]
 runs$flag_units3[runs$run_dir == "runs/2022-04-16T03-16-48Z"]
 runs$flag_units4[runs$run_dir == "runs/2022-04-16T03-16-48Z"]
-#########################################################################################
-modnn_rate <- keras_model_sequential () %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 32, activation = "relu", kernel_regularizer = regularizer_l1(0.00001)) %>%
-layer_dropout(rate=0.4) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.00001)) %>%
-layer_dropout(rate=0.5) %>%
-  layer_dense(units = 1)
-modnn_rate %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.01))
-start_time <- Sys.time()
-history <- modnn_rate %>% fit(
-xTr, yTr, epochs = 300, batch_size = 1000
-)
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-npred <- c(predict(modnn_rate, xTe))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-
-
-
-
-
-
-runs$flag_units1[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
-runs$flag_units2[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
-runs$flag_units3[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
-runs$flag_units4[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
-
-
-
-
-
-
-```
-
-
-```{r}
-#Caffeine
-library(Hmisc)
-library(corrplot)
-correlationmatrix = cor(train[,c(which( colnames(train)=="DRD340" ), which( colnames(train)=="DRD350A" ), which( colnames(train)=="DRD350B" ), which( colnames(train)=="DRD350C" ), which( colnames(train)=="DRD350D" ), which( colnames(train)=="DRD350E" ))])
-corrplot(correlationmatrix)
-palette = colorRampPalette(c("green", "white", "red")) (20)
-heatmap(x = correlationmatrix, col = palette, symm = TRUE)
-cor(train$DR1_330Z, train[1:100])
-```
-
-
-```{r}
-library(data.table)
-library(tidyr)
-classification = copy(data)
-classification = classification %>% drop_na("SMQ905")
-classification = classification %>% drop_na("SMD641")
-classification = classification %>% drop_na("DR1TALCO")
-correlationmatrix = cor(classification[,c(which( colnames(classification)=="SMQ905" ), which( colnames(classification)=="SMD641" ), which( colnames(classification)=="DR1TALCO" ))])
-corrplot(correlationmatrix)
-palette = colorRampPalette(c("green", "white", "red")) (20)
-heatmap(x = correlationmatrix, col = palette, symm = TRUE)
-```
-
-
-```{r}
-#ridageyr, WTINT2YR  ,WTMEC2YR, DR1TVB2 , DR1TPOTA, DR1TMOIS   
-data_e_cig<-mutate(data,E_Cig = case_when(
-  SMQ905 <= 9 ~ "Never",
-  SMQ905 <= 19 ~ "Rarely",
-  SMQ905 <= 29 ~ "Sometimes",
-  SMQ905 <= 39 ~ "Always",
-))
-
-#count of each category
-table(data_e_cig$E_Cig)
-prop.table(table(data_e_cig$E_Cig))
-#make sure all data is omitted
-na.omit(data_e_cig$E_Cig)
-
-#create training and test set based on amount of each category
-data_never = which(data_e_cig$E_Cig == "Never")
-data_rarely = which(data_e_cig$E_Cig == "Rarely")
-data_sometimes = which(data_e_cig$E_Cig == "Sometimes")
-data_always = which(data_e_cig$E_Cig == "Always")
-#training and test data
-train_id = c(sample(data_never, size = trunc(0.70 * length(data_never))),
-sample(data_rarely, size = trunc(0.70 * length(data_rarely))),
-sample(data_sometimes, size = trunc(0.70 * length(data_sometimes))),
-sample(data_always, size = trunc(0.70 * length(data_always))))
-data_new_train = data_e_cig[train_id, ]
-data_new_test = data_e_cig[-train_id, ]
-
-
-#quick lda
-lda_e_cig<-lda(E_Cig~ SMQ670, data=data_new_train)
-
-#attempting to find train and test error, something is wrong with code
-# predict(lda_e_cig, data_new_train)$class
-# e_cig_lda_test_pred = predict(lda_e_cig, data_new_test)$class
-# 
-# train_err = mean(e_cig_lda_train_pred != data_new_train$E_Cig)
-# test_err = mean(e_cig_lda_test_pred != data_new_test$E_Cig)
-# train_err
-# test_err
-```
-
-
-```{r CLASSIFICATION}
-two_way = table(data_e_cig$E_Cig, data_e_cig$RIAGENDR)
-prop.table(two_way)
-prop.table(two_way,1)
-prop.table(two_way,2)
-
-#according to chi-squared test gender is significant, gender variable
-e_cig <-table(data_e_cig$E_Cig, data_e_cig$RIAGENDR)
-chisq.test(e_cig, correct=FALSE)
-
-#highly related but such small value may be incorrect, tried to quit smoking variable
-e_cig <-table(data_e_cig$E_Cig, data_e_cig$SMQ670)
-chisq.test(e_cig, correct=FALSE)
-
-#also highly related; do you now smoke cigarettes variable, issue with size
-e_cig <-table(data_e_cig$E_Cig, data_e_cig$SMQ935)
-chisq.test(e_cig, correct=FALSE)
-
-#decently related ish, race/hispanic origin, same issue with size
-e_cig <-table(data_e_cig$E_Cig, data_e_cig$RIDRETH1)
-chisq.test(e_cig, correct=FALSE)
-
-#decently related, same issue with size, # of children 5 years or younger in HH
-e_cig <-table(data_e_cig$E_Cig, data_e_cig$DMDHHSZA)
-chisq.test(e_cig, correct=FALSE)
-
-#decently related, same issue with size, annual household income
-e_cig <-table(data_e_cig$E_Cig, data_e_cig$INDHHIN2)
-chisq.test(e_cig, correct=FALSE)
 ```
 
 ```{r Classification Test and Training Data}
 #CREATING THE TEST AND TRAINING DATA
-
-
 #first take out NA's in data frame we will use
-data_diet <-drop_na(data, DRQSDIET, BMIWT, LBXTC, BPXSY1, DR1_330Z, DR1TCAFF)
+data_diet <-drop_na(data, DRQSDIET, BMXWT, LBXTC, BPXSY1, DR1_330Z, DR1TCAFF)
+data_diet<-filter(data_diet, DRQSDIET != 9)
 
 #first split in test and train for whole data frame
 train_idx <- sample(1:nrow(data_diet), size = floor(.7 * nrow(data_diet)))
@@ -710,6 +321,7 @@ train_idx <- sample(1:nrow(data_diet), size = floor(.7 * nrow(data_diet)))
 #test and training data
 train_data <- data_diet[train_idx, ]
 test_data <- data_diet[-train_idx, ]
+test_idx <- seq(nrow(data_diet))[-train_idx]
 
 #change to factor for test data
 test_data<-filter(test_data, DRQSDIET != 9)
@@ -723,11 +335,11 @@ train_data$DRQSDIET01 <- ifelse(train_data$DRQSDIET == 2, 1, 0)
 ```{r Knn for Classification}
 #SCALE FOR KNN
 #calculate mean and sd
-mean_train <- colMeans(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')])
-sd_train <- sqrt(diag(var(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')])))
+mean_train <- colMeans(train_data[c('BMXWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')])
+sd_train <- sqrt(diag(var(train_data[c('BMXWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')])))
 #scale the training and test data
-X_train_scaled <- scale(train_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')], center = mean_train, scale = sd_train)
-X_test_scaled <- scale(test_data[c('BMIWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')], center = mean_train, scale = sd_train)
+X_train_scaled <- scale(train_data[c('BMXWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')], center = mean_train, scale = sd_train)
+X_test_scaled <- scale(test_data[c('BMXWT','LBXTC', 'BPXSY1', 'DR1_330Z', 'DR1TCAFF')], center = mean_train, scale = sd_train)
 
 
 #run cross validation in order to find ideal K on training set
@@ -793,32 +405,6 @@ table(KNN_11, test_data$DRQSDIET)
 
 
 ```{r Decision Trees/Adaboost for Classification Problem}
-#General Classification Tree
-tree_model=tree(factor(DRQSDIET01)~BMIWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF, train_data)
-tree_preds =predict(tree_model, test_data, type = "class")
-test_err <- mean(test_preds != test_data$DRQSDIET01)
-print(test_err)
-
-#prune the model
-cv_tree = cv.tree(tree_model,FUN=prune.misclass)
-par(mfrow=c(1,2))
-plot(cv_tree$size,cv_tree$dev / length(train_data),ylab="cv error", xlab="size",type="b")
-plot(cv_tree$k, cv_tree$dev / length(train),ylab="cv error", xlab="k",type="b")
-
-#test error for pruned data
-prune_model=prune.misclass(tree_model,best=5)
-tree_preds_pruned =predict(prune_model, test_data, type = "class")
-(test_err_pruned <- mean(tree_preds_pruned != test_data$DRQSDIET01))
-
-#confusion matrix
-table(tree_preds_pruned, test_data$DRQSDIET01)
-
-#decision tree for pruned data
-plot(prune_model)
-text(prune_model,pretty=0)
-
-
-
 
 #Adaboost
 #make adaboost model (boosted tree)
@@ -837,32 +423,70 @@ adaboost_test_preds <- ifelse(adaboost_test_probs > 0.5, 1, 0)
 test_err <- mean(adaboost_test_preds != test_data$DRQSDIET01)
 print(test_err)
 ```
-So far it appears that KNN is performing better than Adaboost in terms of test error.
 
-```{r QDA for Classification Problem}
-#look at individual predictions
+```{r SVM Classifier}
 
-#make qda model
-qda_model = qda(DRQSDIET01~ BMIWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF, 
-data=train_data)
+#data cleaning only for svm classifier
+train_data$DRQSDIET01 <- as.factor(train_data$DRQSDIET01)
+test_data$DRQSDIET01 <- as.factor(test_data$DRQSDIET01)
 
-#training and test error
-train_predictions= predict(qda_model, train_data)$class
-test_predictions = predict(qda_model, test_data)$class
-train_err = mean(train_predictions != train_data$DRQSDIET01)
-test_err = mean(test_predictions != test_data$DRQSDIET01)
-test_err
-```
+data_diet$DRQSDIET01 <- ifelse(data_diet$DRQSDIET == 2, 1, 0) 
+data_diet$DRQSDIET01 <- as.factor(data_diet$DRQSDIET01)
 
+#subset for only columns needed
+train_data <- train_data[, c("DRQSDIET01", "BMXWT", "LBXTC", "BPXSY1", "DR1_330Z", "DR1TCAFF")]
+test_data <- test_data[, c("DRQSDIET01", "BMXWT", "LBXTC", "BPXSY1", "DR1_330Z", "DR1TCAFF")]
+data_diet <- data_diet[, c("DRQSDIET01", "BMXWT", "LBXTC", "BPXSY1", "DR1_330Z", "DR1TCAFF")]
 
-```{r EDA for DRQSDIET}
-data <-filter(data, DRQSDIET != 9)
-table(data$DRQSDIET)
+#for cross validation
+test_idx2 <- sample(test_idx, size=round(length(test_idx)/2))
+validation_idx <- as.integer(setdiff(test_idx, test_idx2))
 
-boxplot(BPXSY1~DRQSDIET, data = data)
+#function to evaluate cost for cross validation
+test_cost <- function(p, test_data, vector) {
+ svmfit <- svm(DRQSDIET01 ~ BMXWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF,
+ data=train_data, # Training data set
+ kernel="radial", # Kernel type
+ cost=p, # Cost of misclassification
+ scale=TRUE)
+ preds <- predict(svmfit, na.omit(test_data))
+ mean(preds != na.omit(vector))}
 
+#run cross validation to find ideal cost value
+validation_errors <- sapply(c(0.001, 0.01, 0.1, 1, 5, 10, 100),
+                            FUN=function(p) test_cost(p, data_diet[validation_idx,], 
+                            data_diet$DRQSDIET01[validation_idx]))
+test_errors <- sapply(c(0.001, 0.01, 0.1, 1, 5, 10, 100),
+                      FUN=function(p) test_cost(p, data_diet[test_idx2,], 
+                      data_diet$DRQSDIET01[test_idx2]))
+all_errors <- c(validation_errors, test_errors)
 
+#plot different cost results
+plot(
+c(0.001, 0.01, 0.1, 1, 5, 10, 100),
+validation_errors,
+type="l",
+xlab="Cost Values",
+ylab="rMSE",
+main="Cost Values vs. Test rMSE",
+ylim=c(min(all_errors), max(all_errors)))
+lines(c(0.001, 0.01, 0.1, 1, 5, 10, 100),
+test_errors, col=2)
+abline(v=3, lty=3)
+legend("topright", legend=c("Validation", "Test"), col=1:2, lty=1)
 
+#ideal cost value is 10 so run svm with cost = 10
+svmfit <- svm(DRQSDIET01 ~ BMXWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF,
+data=train_data,
+kernel="radial",
+cost=10, 
+scale=TRUE)
 
+#test error
+preds <- predict(svmfit, test_data)
+mean(preds != test_data$DRQSDIET01)
 
+#can see differences between fitted values and actual
+table(svmfit$fitted)
+table(test_data$DRQSDIET01)
 ```
