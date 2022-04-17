@@ -123,33 +123,4 @@ write_csv(test, "Data/Total/test.csv")
 
 
 
-```{r}
-# TODO: DELETE?
-#Caffeine
-library(Hmisc)
-library(corrplot)
-correlationmatrix = cor(train[,c(which( colnames(train)=="DRD340" ), which( colnames(train)=="DRD350A" ), which( colnames(train)=="DRD350B" ), which( colnames(train)=="DRD350C" ), which( colnames(train)=="DRD350D" ), which( colnames(train)=="DRD350E" ))])
-corrplot(correlationmatrix)
-palette = colorRampPalette(c("green", "white", "red")) (20)
-heatmap(x = correlationmatrix, col = palette, symm = TRUE)
-cor(train$DR1_330Z, train[1:100])
-```
-
-
-```{r}
-
-# TODO: DELETE?
-library(data.table)
-library(tidyr)
-classification = copy(data)
-classification = classification %>% drop_na("SMQ905")
-classification = classification %>% drop_na("SMD641")
-classification = classification %>% drop_na("DR1TALCO")
-correlationmatrix = cor(classification[,c(which( colnames(classification)=="SMQ905" ), which( colnames(classification)=="SMD641" ), which( colnames(classification)=="DR1TALCO" ))])
-corrplot(correlationmatrix)
-palette = colorRampPalette(c("green", "white", "red")) (20)
-heatmap(x = correlationmatrix, col = palette, symm = TRUE)
-```
-
-
 
