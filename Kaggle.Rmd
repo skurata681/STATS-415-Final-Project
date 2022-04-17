@@ -33,50 +33,13 @@ firstprediction <-  firstprediction%>%rename(SEQN=test.SEQN)
 firstprediction<-  firstprediction%>%rename(y=x)
 write_csv(firstprediction, "Predictions/Kaggle/firstPrediction.csv")
 
-#KAGGLE ATTEMPTS. TRIED BACKWARD AND FORWARD SELECTION WITH REGSUBSETS
-    #LOO-CV
-    # n_predictors <- ncol(train) - 1
-    # regfit.full <- regsubsets(y ~ ., data = train, nvmax = n_predictors, method = "backward")
-    # reg.summary <- summary(regfit.full)
-    # reg.summary$rsq
-#BY RUNNING BACKWARDS AND FORWARD SELECTION WE GOT LOW RSQ VALUE OF APPROXIMATELY .32
-
-#KAGGLE ATTEMPTS FORWARD SELECTION, this method looks at p-values
-
 #resulting model from p-value
 forward_selection_model_signifreg <-lm(formula = y ~ SMAQUEX2 + BMXARML + DMDBORN4 + BPXSY1 + BPACSZ + DR1TSUGR + DR1TFIBE + RIDAGEYR + DR1TKCAL + BMXWT + BMXBMI + BMXHT + BMXWAIST + RIDEXMON + BMXARMC + SIAPROXY + DR1TATOC + FIALANG + DR1TS100 + SEQN + LBXTC + SIAINTRP + WTINT2YR, data = train)
 summary(forward_selection_model_signifreg)
 
-#check model diagnostics of forward selection model
-ggplot() + geom_point(mapping = aes(x = fitted(forward_selection_model_signifreg), residuals(forward_selection_model_signifreg))) + geom_hline(yintercept = 0) + xlab("Fitted values") + ylab("Residuals")
-
-#normal qq plot shows that the distribution is longtailed, cauchy. this is concerning for least squares
-qqnorm(forward_selection_model_signifreg$residuals, ylab = "Residuals")
-qqline(forward_selection_model_signifreg$residuals)
-
-
-
-#attempt huber method because long-tailed distribution
-huber_method<-rlm(formula = y ~ SMAQUEX2 + BMXARML + DMDBORN4 + BPXSY1 + BPACSZ + DR1TSUGR + DR1TFIBE + RIDAGEYR + DR1TKCAL + BMXWT + BMXBMI + BMXHT + BMXWAIST + RIDEXMON + BMXARMC + SIAPROXY + DR1TATOC + FIALANG + DR1TS100 + SEQN + LBXTC + SIAINTRP + WTINT2YR, data = train)
-#predict for huber method
-predictions_test<-predict(huber_method, newdata=test)
-#R^squared for hubers method
-(cor(predictions_test,test$y)^2)
-
 #Random Forest Model  
 xx = randomForest(y ~., data = train, mtry = 48, importance = TRUE)
 mean((predict(xx, test)- test$y)^2)
-
-#PCR does not perform as well as Random Forest
-summary(pcr(y~., data=train, scale = TRUE, validation = "CV"))
-
-#PLSR performs very similarly to PCR
-summary(plsr(y~., data=train, scale = TRUE, validation = "CV"))
-
-#Attempt at Neural Network, to be tried and dealt with later
-neuralnetmodel<-neuralnet(y ~ ., train, hidden = 4500)
-predict_testNN = compute(neuralnetmodel, test)
-cor(predict_testNN$net.result,train$y[1:3823])^2
 
 #Boost Tree
 idealdepth = 0
@@ -98,185 +61,32 @@ for(ntrees in c(128,256,512,1024,2048,4096,8192,16384)){
 boosty = gbm(y~.-SEQN, data = train, n.trees = idealntrees, interaction.depth = idealdepth, shrinkage = .01, cv.folds = 5)
 testprediction <- predict(boosty, newdata=test, n.trees=idealntrees)
 rsquare = (cor(predict(boosty, newdata=train, n.trees=idealntrees), train$y))^2
-#standardized the data
-#dummy encoding
-#don't transform the response variable
 
-
-
-# table(train$DRQSDIET)
-# c('BMDSTATS', 'BPAARM', 'BPXPULS', 'BPXPTY', 'BPAEN1', 'BPAEN2', 'BPAEN3' , 'SDDSRVYR', 'RIDEXMON', 'RIAGENDR', 'RIDRETH1', 'DMDCITZN', 'DMDHRGND', 'DMDHRMAR', 'SIALANG', 'SIAPROXY', 'SIAINTRP','FIALANG', 'FIAPROXY', 'FIAINTRP', 'MIALANG', 'MIAPROXY', 'MIAINTRP', 'SDMVPSU', 'DR1DAY', 'DR1LANG', 'DBQ095Z', 'DRQSPREP', 'DRQSDIET', )
-
-# train$BMDSTATS<-ifelse(train$BMDSTATS==3,1,0)
-# train$BPAARM<-ifelse(train$BPAARM==2,1,0)
-# train$BPXPULS<-ifelse(train$BPAARM==2,1,0)
-# train$BPXPTY<-ifelse(train$BPXPTY==2,1,0)
-# train$BPAEN1<-ifelse(train$BPAEN1==2,1,0)
-# train$BPAEN2<-ifelse(train$BPAEN2==2,1,0)
-# train$BPAEN3<-ifelse(train$BPAEN3==2,1,0)
-# train$RIDEXMON<-ifelse(train$RIDEXMON==2,1,0)
-# train$RIAGENDR<-ifelse(train$RIAGENDR==2,1,0)
-# train$DMDHRGND <- ifelse(train$DMDHRGND==2,1,0)
-# train$SIALANG <- ifelse(train$SIALANG==2,1,0)
-# train$SIAPROXY <- ifelse(train$SIAPROXY==2,1,0)
-# train$SIAINTRP <- ifelse(train$SIAINTRP==2,1,0)
-# train$FIALANG <- ifelse(train$FIALANG==2,1,0)
-# train$FIAPROXY <- ifelse(train$FIAPROXY==2,1,0)
-# train$FIAINTRP <- ifelse(train$FIAINTRP==2,1,0)
-# train$MIALANG <- ifelse(train$MIALANG==2,1,0)
-# train$MIAPROXY <- ifelse(train$MIAPROXY==2,1,0)
-# train$MIAINTRP <- ifelse(train$MIAINTRP==2,1,0)
-
-
-# train<-as.data.frame(train)
-# scale_train<-scale(train[, -which(names(train) %in% c('BMDSTATS', 'BPAARM', 'BPXPULS', 'BPXPTY', 'BPAEN1', 'BPAEN2', 'BPAEN3', 'RIDEXMON', 'RIAGENDR', 
-# 'DMDHRGND', 'SIALANG', 'SIAPROXY', 'SIAINTRP','FIALANG', 'FIAPROXY', 'FIAINTRP', 'MIALANG', 'MIAPROXY', 'MIAINTRP'))])
-# scale_train<-as.data.frame(scale_train)
-
-
-# scale_train$BMDSTATS <- train$BMDSTATS
-# scale_train$BPAARM <- train$BPAARM
-# scale_train$BPXPULS <- train$BPXPULS
-# scale_train$BPXPTY <- train$BPXPTY
-# scale_train$BPAEN1 <- train$BPAEN1
-# scale_train$BPAEN2 <- train$BPAEN2
-# scale_train$BPAEN3 <- train$BPAEN3
-# scale_train$RIDEXMON <- train$RIDEXMON
-# scale_train$RIAGENDR <- train$RIAGENDR
-# scale_train$DMDHRGND <- train$DMDHRGND
-# scale_train$SIALANG <- train$SIALANG
-# scale_train$SIAPROXY <- train$SIAPROXY
-# scale_train$SIAINTRP <- train$SIAINTRP
-# scale_train$FIALANG <- train$FIALANG
-# scale_train$FIAPROXY <- train$FIAPROXY
-# scale_train$FIAINTRP <- train$FIAINTRP
-# scale_train$MIALANG <- train$MIALANG
-# scale_train$MIAPROXY <- train$MIAPROXY
-# scale_train$MIAINTRP <- train$MIAINTRP
-
-
-
-
+#scale data for neural networks
 scale_train<-scale(train)
 scale_train<-as.data.frame(scale_train)
 test$y <- seq(1:3823)
 scale_test<-scale(test)
 scale_test<-as.data.frame(scale_test)
-# scale_train <- scale_train[sample(1:nrow(scale_train)), ]
+
 #training and testing data for neural networks
 test_idx <- sample(seq(nrow(scale_train)), size= round(nrow(scale_train)*.3)) 
 train_idx <- seq(nrow(scale_train))[-test_idx]
 train_neural_networks <- scale_train[train_idx,]
 test_neural_networks <- scale_train[test_idx,]
 
-
-
-
-#new attempt at neural network
+#convert data for neural networks, use to find best model
 xTr = model.matrix(lm(y ~ . - 1, data=train_neural_networks))
 yTr = train_neural_networks$y
 xTe = model.matrix(lm(y ~ . - 1, data=test_neural_networks))
 yTe = test_neural_networks$y
 
-#rep(0,3823)
+#use on found model
 xTrain = model.matrix(lm(y ~ . - 1, data=scale_train))
 yTrain = scale_train$y
 xTest = model.matrix(lm(y ~ . - 1, data=scale_test))
 
-
-#two layer model
-
-
-modnn <- keras_model_sequential () %>%
- layer_dense(units = 64, activation = "relu") %>% # hidden layer 1
- layer_dense(units = 64, activation = "relu") %>% # hidden layer 2
- layer_dense(units = 1) # output layer, no activation
-
-
- modnn %>% compile(loss = "mse",
- optimizer = optimizer_adam(learning_rate=0.01))
-#see the amount of time it takes, fit the model.
-
-#max batch size is number of columns
-#epochs need to run and see if it keeps improving or not
-start_time <- Sys.time()
-history <- modnn %>% fit(
-xTr, yTr, epochs = 200, batch_size = 32,
-validation_data = list(xTe, yTe)
-)
-end_time <- Sys.time()
-end_time - start_time
-
-#predictions and r^squared
-npred <- c(predict(modnn , xTe))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-cor(c(predict(modnn, xTr)), yTr)^2
-#GETTING SAMMMMMMMEEEEEEE PREDICTIONS
-predict(modnn, xTr)
-
-modnn_1 <- keras_model_sequential () %>%
-  layer_dense(units = 1)
-modnn_1 %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.01))
-start_time <- Sys.time()
-history <- modnn_1 %>% fit(
-xTr, yTr, epochs = 150, batch_size = 32,
-validation_data = list(xTe, yTe)
-)
-end_time <- Sys.time()
-end_time - start_time
-
-npred <- c(predict(modnn_1 , xTe))
-cor(npred, yTe)^2 %>% round(3)  # test r^2 from neural network predictions
-
-
-
-
-
-#make sure regularization is low enough
-
-
-modnn_2 <- keras_model_sequential () %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-  layer_dense(units = 1)
-
-modnn_2 %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.01))
-
-
-start_time <- Sys.time()
-history <- modnn_2 %>% fit(
-xTr, yTr, epochs = 200, batch_size = 6245,
-validation_data = list(xTe, yTe)
-)
-end_time <- Sys.time()
-end_time - start_time
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-
-npred <- c(predict(modnn_2 , xTe))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-cor(c(predict(modnn_2, xTr)), yTr)^2 # train r^2
-
-predict(modnn_2, xTr)
-
-
-#perhaps use random forest for variable selection
-
-
-#SO FAR BEST NEURAL NETWORK, ran it and got .51
-############################################################################################
+##########Neural Network Model##################################################################################
 modnn_2 <- keras_model_sequential () %>%
 layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.001)) %>%
 layer_dropout(rate=0.4) %>%
@@ -284,73 +94,33 @@ layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1
 layer_dense(units = 62, activation = "relu", kernel_regularizer = regularizer_l1(0.001)) %>%
 layer_dropout(rate=0.4) %>%
 layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.001)) %>%
-layer_dropout(rate=0.5) %>%
+layer_dropout(rate=0.4) %>%
   layer_dense(units = 1)
 modnn_2 %>% compile(loss = "mse",
 optimizer = optimizer_adam(learning_rate=0.005))
 start_time <- Sys.time()
 history <- modnn_2 %>% fit(
-xTrain, yTrain, epochs = 300, batch_size = 4500
+xTr, yTr, epochs = 300, batch_size = 4500
 )
 end_time <- Sys.time()
 end_time - start_time
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-npred <- c(predict(modnn_2, xTest))
-(plain_net <- cor(npred, yTe)^2) # test r^2
 
+#predictions
+npred_train <- c(predict(modnn_2, xTr))
+npred_test <- c(predict(modnn_2, xTe))
 
+#test and training error
+train_error<- mean((npred_train- yTr)^2)
+test_error<-mean((npred_test- yTe)^2)
+
+#write to neural.network. csv
 neural_network_prediction = data.frame(test$SEQN, npred)
-
 colnames(neural_network_prediction)
 neural_network_prediction <-  neural_network_prediction%>%rename(SEQN=test.SEQN)
 neural_network_prediction<-  neural_network_prediction%>%rename(y=npred)
 write_csv(neural_network_prediction, "Predictions/Kaggle/neural_network_Prediction.csv")
-#############################################################################################
 
-
-#let's try cross validation for the best rate value
-
-
-modnn_more_layers <- keras_model_sequential () %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer  regularizer_l2(0.01)) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-  layer_dense(units = 1)
-modnn_more_layers %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.01))
-start_time <- Sys.time()
-history <- modnn_2 %>% fit(
-xTr, yTr, epochs = 200, batch_size = 4000,
-validation_data = list(xTe, yTe)
-)
-end_time <- Sys.time()
-end_time - start_time
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-npred <- c(predict(modnn_more_layers , test))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-##################################################################################
-
-modnn_validation <- keras_model_sequential () %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l2(0.01)) %>%
-  layer_dense(units = 1)
-modnn_validation %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.0001))
-start_time <- Sys.time()
-history<-modnn_validation %>% fit(
-xTr, yTr, epochs = 200, batch_size = 32, validation_split =0.1, verbose =2,
-)
-end_time <- Sys.time()
-end_time - start_time
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-npred <- c(predict(modnn_validation , xTe))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-
-#####################################################################################
+########Hyperparamater Tuning for Neural Networks#############################################################################
 FLAGS <- flags(
   flag_numeric("dropout1", 0.4),
   flag_numeric("dropout2", 0.3),
@@ -380,59 +150,35 @@ layer_dense(units = FLAGS$units4, activation = "relu", kernel_regularizer = regu
 layer_dropout(rate=FLAGS$dropout4) %>%
   layer_dense(units = 1)
 
-
 model_exhaust %>% compile(loss = "mse",
 optimizer = optimizer_adam(learning_rate=FLAGS$learning1))
 
 runs_epochs <- tuning_run("hyperparametertuning.R", flags = list(
-  dropout1 = c(0.2), #ran
-  dropout2 = c(0.2), #ran
-  dropout3 = c(0.4), #ran
-  dropout4 = c(0.5), #ran
-  units1 = c(64),
-  units2 = c(64),
-  units3 = c(32),
-  units4=  c(64),
+  dropout1 = c(0.2,0.3,0.4), #ran
+  dropout2 = c(0.2,0.3,0.4), #ran
+  dropout3 = c(0.2,0.3,0.4), #ran
+  dropout4 = c(0.2,0.3,0.4), #ran
+  units1 = c(32,64),
+  units2 = c(32,64),
+  units3 = c(32,64),
+  units4=  c(32,64),
   regulizar1 = c(.00001),
   regulizar2 = c(.00001),
   regulizar3 = c(.00001),
   regulizar4 = c(.00001),
-  epochs1 = c(300),
-  batchsize1 = c(400),
+  epochs1 = c(100,200,300),
+  batchsize1 = c(50,400,1000,4500),
   learning1 = c(.001)
 ), confirm=FALSE)
 runs_epochs[order(runs_epochs$eval_, decreasing = FALSE), ]
 
-
-
-runs_try <- tuning_run("hyperparametertuning.R", flags = list(
-  dropout1 = c(0.2), #ran
-  dropout2 = c(0.2), #ran
-  dropout3 = c(0.4), #ran
-  dropout4 = c(0.5), #ran
-  units1 = c(64),
-  units2 = c(64),
-  units3 = c(32),
-  units4=  c(64),
-  regulizar1 = c(.00001),
-  regulizar2 = c(.00001),
-  regulizar3 = c(.00001),
-  regulizar4 = c(.00001),
-  epochs1 = c(300),
-  batchsize1 = c(400),
-  learning1 = c(.001)
-), confirm=FALSE)
-runs_try[order(runs_try$eval_, decreasing = FALSE), ]
-
-runs_try
 ############################################################################################
-
+#how to access best values for neural network
+#use file that device gave instead of "runs/2022-04-..."
 runs$flag_dropout1[runs$run_dir == "runs/2022-04-16T02-08-47Z"]
 runs$flag_dropout2[runs$run_dir == "runs/2022-04-16T02-08-47Z"]
 runs$flag_dropout3[runs$run_dir == "runs/2022-04-16T02-08-47Z"]
 runs$flag_dropout4[runs$run_dir == "runs/2022-04-16T02-08-47Z"]
-
-
 
 #number one choice
 runs$flag_units1[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
@@ -445,43 +191,6 @@ runs$flag_units1[runs$run_dir == "runs/2022-04-16T03-16-48Z"]
 runs$flag_units2[runs$run_dir == "runs/2022-04-16T03-16-48Z"]
 runs$flag_units3[runs$run_dir == "runs/2022-04-16T03-16-48Z"]
 runs$flag_units4[runs$run_dir == "runs/2022-04-16T03-16-48Z"]
-#########################################################################################
-modnn_rate <- keras_model_sequential () %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.00001)) %>%
-layer_dropout(rate=0.2) %>%
-layer_dense(units = 32, activation = "relu", kernel_regularizer = regularizer_l1(0.00001)) %>%
-layer_dropout(rate=0.4) %>%
-layer_dense(units = 64, activation = "relu", kernel_regularizer = regularizer_l1(0.00001)) %>%
-layer_dropout(rate=0.5) %>%
-  layer_dense(units = 1)
-modnn_rate %>% compile(loss = "mse",
-optimizer = optimizer_adam(learning_rate=0.01))
-start_time <- Sys.time()
-history <- modnn_rate %>% fit(
-xTr, yTr, epochs = 300, batch_size = 1000
-)
-#l 1 incentivizes things to go all the way to 0
-#l 2 regularization typical (not a big difference)
-npred <- c(predict(modnn_rate, xTe))
-(plain_net <- cor(npred, yTe)^2) # test r^2
-
-
-
-
-
-
-runs$flag_units1[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
-runs$flag_units2[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
-runs$flag_units3[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
-runs$flag_units4[runs$run_dir == "runs/2022-04-16T03-31-16Z"]
-
-
-
-
-
-
 ```
 ```
 
