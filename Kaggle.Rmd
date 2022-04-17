@@ -9,11 +9,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 set.seed(245)
 #neural network
-library(keras)
-library(neuralnet)
-library(superml)
-library(tfruns)
+#library(keras)
+#library(neuralnet)
+#library(superml)
+#library(tfruns)
 library(readr)
+library(gbm)
+set.seed(5)
 ```
 
 ```{r}
@@ -80,9 +82,24 @@ neuralnetmodel<-neuralnet(y ~ ., train, hidden = 4500)
 predict_testNN = compute(neuralnetmodel, test)
 cor(predict_testNN$net.result,train$y[1:3823])^2
 
-
-
-
+#Boost Tree
+idealdepth = 0
+idealntrees = 0
+temp = .Machine$double.xmax
+for(ntrees in c(128,256,512,1024,2048,4096,8192,16384)){
+  for(depth in c(2,4,8,16,32)){
+    boosty = gbm(y~.-SEQN, data = train, n.trees = ntrees, interaction.depth = depth, shrinkage = .01, cv.folds = 5)
+    tempy = mean(boosty$cv.error)
+    if(tempy < temp){
+      temp = tempy
+      idealdepth = depth
+      idealntrees = ntrees
+    }
+  }
+}
+boosty = gbm(y~.-SEQN, data = train, n.trees = idealntrees, interaction.depth = idealdepth, shrinkage = .01, cv.folds = 5)
+testprediction <- predict(boosty, newdata=test, n.trees=idealntrees)
+rsquare = (cor(predict(boosty, newdata=train, n.trees=idealntrees), train$y))^2
 #standardized the data
 #dummy encoding
 #don't transform the response variable
