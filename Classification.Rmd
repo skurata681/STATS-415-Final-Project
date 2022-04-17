@@ -139,7 +139,67 @@ print(test_err)
 ```
 
 
-```{r Support Vector Classifier}
+```{r SVM Classifier}
+#data cleaning only for svm classifier
+train_data$DRQSDIET01 <- as.factor(train_data$DRQSDIET01)
+test_data$DRQSDIET01 <- as.factor(test_data$DRQSDIET01)
+data_diet$DRQSDIET01 <- ifelse(data_diet$DRQSDIET == 2, 1, 0) 
+data_diet$DRQSDIET01 <- as.factor(data_diet$DRQSDIET01)
 
+#subset for only columns needed
+train_data <- train_data[, c("DRQSDIET01", "BMXWT", "LBXTC", "BPXSY1", "DR1_330Z", "DR1TCAFF")]
+test_data <- test_data[, c("DRQSDIET01", "BMXWT", "LBXTC", "BPXSY1", "DR1_330Z", "DR1TCAFF")]
+data_diet <- data_diet[, c("DRQSDIET01", "BMXWT", "LBXTC", "BPXSY1", "DR1_330Z", "DR1TCAFF")]
+
+#for cross validation
+test_idx2 <- sample(test_idx, size=round(length(test_idx)/2))
+validation_idx <- as.integer(setdiff(test_idx, test_idx2)
+                             )
+#function to evaluate cost for cross validation
+test_cost <- function(p, test_data, vector) {
+ svmfit <- svm(DRQSDIET01 ~ BMXWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF,
+ data=train_data, # Training data set
+ kernel="radial", # Kernel type
+ cost=p, # Cost of misclassification
+ scale=TRUE)
+ preds <- predict(svmfit, na.omit(test_data))
+ mean(preds != na.omit(vector))}
+
+#run cross validation to find ideal cost value
+validation_errors <- sapply(c(0.001, 0.01, 0.1, 1, 5, 10, 100),
+                            FUN=function(p) test_cost(p, data_diet[validation_idx,], 
+                            data_diet$DRQSDIET01[validation_idx]))
+test_errors <- sapply(c(0.001, 0.01, 0.1, 1, 5, 10, 100),
+                      FUN=function(p) test_cost(p, data_diet[test_idx2,], 
+                      data_diet$DRQSDIET01[test_idx2]))
+all_errors <- c(validation_errors, test_errors)
+
+#plot different cost results
+plot(
+c(0.001, 0.01, 0.1, 1, 5, 10, 100),
+validation_errors,
+type="l",
+xlab="Cost Values",
+ylab="rMSE",
+main="Cost Values vs. Test rMSE",
+ylim=c(min(all_errors), max(all_errors)))
+lines(c(0.001, 0.01, 0.1, 1, 5, 10, 100),
+test_errors, col=2)
+abline(v=3, lty=3)
+legend("topright", legend=c("Validation", "Test"), col=1:2, lty=1)
+
+#ideal cost value is 10 so run svm with cost = 10
+svmfit <- svm(DRQSDIET01 ~ BMXWT + LBXTC + BPXSY1 + DR1_330Z + DR1TCAFF,
+data=train_data,
+kernel="radial",
+cost=10, 
+scale=TRUE)
+
+#test error
+preds <- predict(svmfit, test_data)
+mean(preds != test_data$DRQSDIET01)
+
+#can see differences between fitted values and actual
+table(svmfit$fitted)
+table(test_data$DRQSDIET01)
 ```
-
